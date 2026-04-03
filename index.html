@@ -1,11 +1,105 @@
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-  <link rel="stylesheet" href="styles.css">
-  <title>Training Courses Homepage</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML 培训讲义库</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {--bg: #0d0f14;--bg2: #13161d;--panel: #1e2330;--border: #2a3045;--accent: #00d4aa;--accent3: #7c5cfc;--text: #e2e8f4;--text-dim: #8892a4;--text-bright: #ffffff;--mono: 'JetBrains Mono', monospace;--serif: 'Noto Serif SC', serif;}
+  *, *::before, *::after {box-sizing: border-box;margin: 0;padding: 0;}
+  html, body {width: 100%;height: 100%;overflow: hidden;background: var(--bg);color: var(--text);font-family: var(--serif);}
+  #deck {width: 100%;height: 100%;position: relative;}
+  .slide {position: absolute;inset: 0;width: 100%;height: 100%;overflow: hidden;display: flex;flex-direction: column;justify-content: center;align-items: center;padding: 56px 80px 80px;opacity: 0;pointer-events: none;transform: translateY(36px);transition: opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);}
+  .slide.active {opacity: 1;pointer-events: all;transform: translateY(0);}
+  .slide-inner {width: 100%;max-width: 960px;max-height: calc(100vh - 136px);overflow-y: auto;}
+  .slide.centered {text-align: center;}
+  .slide.centered .slide-inner {display: flex;flex-direction: column;align-items: center;justify-content: center;overflow: visible;}
+  #progress-bar {position: fixed;top: 0;left: 0;height: 3px;background: linear-gradient(90deg, var(--accent), var(--accent3));transition: width .4s ease;z-index: 100;}
+  #nav {position: fixed;bottom: 28px;left: 50%;transform: translateX(-50%);display: flex;align-items: center;gap: 14px;z-index: 100;background: rgba(13,15,20,.88);border: 1px solid var(--border);border-radius: 40px;padding: 9px 18px;}
+  .nav-btn {width: 34px;height: 34px;border-radius: 50%;border: 1px solid var(--border);background: var(--panel);color: var(--text);cursor: pointer;display: flex;align-items: center;justify-content: center;font-size: 15px;transition: all .2s;}
+  .nav-btn:hover:not(:disabled) {border-color: var(--accent);color: var(--accent);}
+  .nav-btn:disabled {opacity: .28;cursor: default;}
+  #slide-counter {font-family: var(--mono);font-size: 12px;color: var(--text-dim);min-width: 64px;text-align: center;}
+  #slide-counter .cur {color: var(--accent);font-weight: 700;}
+  .bg-grid {position: fixed;inset: 0;background-image: linear-gradient(rgba(0,212,170,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,170,.022) 1px, transparent 1px);background-size: 44px 44px;pointer-events: none;z-index: 0;}
+  .slide-title {font-size: clamp(24px, 3.2vw, 48px);font-weight: 900;color: var(--text-bright);margin-bottom: 20px;}
+  .slide-desc {color: var(--text-dim);font-size: 14px;margin-bottom: 32px;max-width: 560px;line-height: 1.8;}
+  .course-grid {display: grid;grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));gap: 14px;margin-top: 40px;}
+  .course-card {background: var(--panel);border: 1px solid var(--border);border-radius: 8px;padding: 24px;transition: all .3s;text-decoration: none;color: inherit;display: block;cursor: pointer;}
+  .course-card:hover {border-color: var(--accent);transform: translateY(-4px);box-shadow: 0 8px 24px rgba(0, 212, 170, .12);}
+  .course-emoji {font-size: 24px;margin-bottom: 12px;}
+  .course-title {font-size: 16px;font-weight: 700;color: var(--text-bright);margin-bottom: 8px;}
+  .course-desc {font-size: 12px;color: var(--text-dim);line-height: 1.6;margin-bottom: 12px;}
+  .course-tags {display: flex;gap: 6px;flex-wrap: wrap;}
+  .tag {display: inline-block;font-family: var(--mono);font-size: 8px;padding: 2px 8px;border-radius: 3px;background: rgba(0, 212, 170, .12);color: var(--accent);}
+  .empty-state {text-align: center;padding: 48px 20px;color: var(--text-dim);margin-top: 40px;}
+  .empty-state-icon {font-size: 48px;margin-bottom: 16px;}
+  .empty-state-title {font-size: 18px;font-weight: 700;color: var(--text-bright);margin-bottom: 8px;}
+  .footer {margin-top: 40px;padding-top: 20px;text-align: center;font-size: 12px;color: var(--text-dim);}
+  .footer a {color: var(--accent3);text-decoration: none;}
+</style>
 </head>
-<body class="dark-theme">
-  <h1>Welcome to Our Training Courses</h1>
-  <p>Explore our range of courses to enhance your skills.</p>
-  <footer>Contact us: info@trainingcourses.com</footer>
+<body>
+<div class="bg-grid"></div>
+<div id="progress-bar"></div>
+<div id="nav">
+  <button class="nav-btn" id="btn-first" onclick="goTo(0)">⇤</button>
+  <button class="nav-btn" id="btn-prev" onclick="prev()">‹</button>
+  <div id="slide-counter"><span class="cur" id="cur">1</span> / <span id="total">1</span></div>
+  <button class="nav-btn" id="btn-next" onclick="next()">›</button>
+  <button class="nav-btn" id="btn-last" onclick="goTo(slides.length-1)">⇥</button>
+</div>
+<div id="deck">
+<div class="slide centered" data-title="首页 · 培训讲义库">
+<div class="slide-inner">
+  <h1 class="slide-title">🎓<br>团队培训讲义库</h1>
+  <p class="slide-desc">精心打磨的实战培训讲义，覆盖技术、业务、最佳实践。<br>通过 HTML 交互式演示，让知识传递更高效。</p>
+  <div class="course-grid">
+    <a href="ppts/cc-tmux.html" class="course-card">
+      <div class="course-emoji">🤖</div>
+      <div class="course-title">Claude Code × tmux</div>
+      <div class="course-desc">在多窗格终端中解锁 AI 辅助编程的全部潜力——会话持久化、并行工作流、生产级协作模式。</div>
+      <div class="course-tags"><span class="tag">中级→高级</span><span class="tag">3-4h</span><span class="tag">动手实操</span></div>
+    </a>
+  </div>
+  <div class="empty-state">
+    <div class="empty-state-icon">📚</div>
+    <div class="empty-state-title">更多讲义即将上线</div>
+    <p>在 ppts/ 文件夹中创建新讲义，即会自动出现在此处</p>
+  </div>
+  <div class="footer"><p>© 2025 HTML 演示文稿平台 | <a href="https://github.com/cuiqingwei/html-ppt" target="_blank">GitHub 仓库 ↗</a></p></div>
+</div>
+</div>
+</div>
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+document.getElementById('total').textContent = slides.length;
+function updateUI() {
+  document.getElementById('cur').textContent = current + 1;
+  const pct = slides.length > 1 ? (current / (slides.length - 1)) * 100 : 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('btn-prev').disabled = current === 0;
+  document.getElementById('btn-next').disabled = current === slides.length - 1;
+}
+function goTo(n) {
+  if (n < 0 || n >= slides.length || n === current) return;
+  slides[current].classList.remove('active');
+  current = n;
+  slides[current].classList.add('active');
+  updateUI();
+}
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+  if (e.key === 'End') { e.preventDefault(); goTo(slides.length - 1); }
+});
+slides[0].classList.add('active');
+updateUI();
+</script>
 </body>
 </html>

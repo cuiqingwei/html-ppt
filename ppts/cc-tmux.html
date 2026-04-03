@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code × tmux 实战培训讲义</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #13161d;
+    --bg3: #1a1e28;
+    --panel: #1e2330;
+    --border: #2a3045;
+    --accent: #00d4aa;
+    --accent2: #ff6b35;
+    --accent3: #7c5cfc;
+    --text: #e2e8f4;
+    --text-dim: #8892a4;
+    --text-bright: #ffffff;
+    --yellow: #f0c040;
+    --green: #4ade80;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Noto Serif SC', serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--serif);
+  }
+
+  /* ══ SLIDE ENGINE ══ */
+  #deck {
+    width: 100%; height: 100%;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 56px 80px 80px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(36px);
+    transition: opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  .slide.exit-up {
+    opacity: 0 !important;
+    transform: translateY(-36px) !important;
+    transition: opacity .3s ease, transform .3s ease !important;
+  }
+
+  .slide.enter-from-below {
+    opacity: 0;
+    transform: translateY(56px);
+    transition: none !important;
+  }
+
+  .slide-inner {
+    width: 100%;
+    max-width: 960px;
+    max-height: calc(100vh - 136px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .slide-inner::-webkit-scrollbar { width: 4px; }
+  .slide-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .slide.centered {
+    text-align: center;
+  }
+  .slide.centered .slide-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    max-height: 100%;
+  }
+
+  /* ══ PROGRESS ══ */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transition: width .4s ease;
+    z-index: 100;
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  /* ══ NAV ══ */
+  #nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 100;
+    background: rgba(13,15,20,.88);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    padding: 9px 18px;
+  }
+
+  .nav-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    transition: all .2s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(0,212,170,.08); }
+  .nav-btn:disabled { opacity: .28; cursor: default; }
+
+  #slide-counter {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 64px;
+    text-align: center;
+    user-select: none;
+  }
+
+  #slide-counter .cur { color: var(--accent); font-weight: 700; }
+
+  /* ══ MENU BTN ══ */
+  #menu-btn {
+    position: fixed;
+    top: 18px; right: 22px;
+    z-index: 200;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .2s;
+  }
+  #menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ══ SLIDE MENU ══ */
+  #slide-menu {
+    position: fixed;
+    top: 0; right: 0;
+    width: 300px; height: 100%;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 150;
+    transform: translateX(100%);
+    transition: transform .3s ease;
+    overflow-y: auto;
+    padding: 56px 0 40px;
+  }
+  #slide-menu.open { transform: translateX(0); }
+
+  .menu-header {
+    padding: 0 24px 16px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+
+  .menu-item {
+    padding: 11px 24px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 3px solid transparent;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .menu-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+  .menu-item.active { color: var(--accent); border-color: var(--accent); background: rgba(0,212,170,.04); }
+  .menu-num { font-family: var(--mono); font-size: 9px; color: var(--border); min-width: 22px; }
+
+  /* ══ KEY HINT ══ */
+  #key-hint {
+    position: fixed;
+    bottom: 28px; right: 22px;
+    z-index: 90;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--border);
+    text-align: right;
+    line-height: 2;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ══ TOAST ══ */
+  #toast {
+    position: fixed;
+    top: 22px; left: 50%;
+    transform: translateX(-50%) translateY(-70px);
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 9px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    z-index: 300;
+    transition: transform .28s ease;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ══ BG GRID ══ */
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,.022) 1px, transparent 1px);
+    background-size: 44px 44px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ══ TYPOGRAPHY ══ */
+  .chapter-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chapter-num::after { content:''; width:60px; height:1px; background:var(--border); }
+
+  .slide-title {
+    font-size: clamp(24px, 3.2vw, 38px);
+    font-weight: 900;
+    color: var(--text-bright);
+    letter-spacing: -1px;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+
+  .slide-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 32px;
+    max-width: 560px;
+    line-height: 1.8;
+  }
+
+  /* ══ CARDS ══ */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 13px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    transition: border-color .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:var(--accent); opacity:0; transition:opacity .2s;
+  }
+  .card:hover::before { opacity:1; }
+  .card-icon { font-size:22px; margin-bottom:10px; }
+  .card-title { font-family:var(--mono); font-size:11px; font-weight:700; color:var(--text-bright); margin-bottom:7px; }
+  .card-body { font-size:11px; color:var(--text-dim); line-height:1.7; }
+
+  /* ══ TERMINAL ══ */
+  .terminal {
+    background: #0a0c10;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 16px 0;
+    font-family: var(--mono);
+  }
+
+  .terminal-bar {
+    background: var(--bg3);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot { width:11px; height:11px; border-radius:50%; }
+  .dot-r { background:#ff5f57; } .dot-y { background:#febc2e; } .dot-g { background:#28c840; }
+  .terminal-label { font-size:10px; color:var(--text-dim); margin-left:6px; letter-spacing:1px; }
+
+  .terminal-body {
+    padding: 16px 20px;
+    font-size: 12px;
+    line-height: 1.9;
+    overflow-x: auto;
+  }
+
+  .terminal-body .prompt { color:var(--accent); }
+  .terminal-body .cmd { color:var(--text-bright); }
+  .terminal-body .comment { color:#3d4f66; }
+  .terminal-body .out { color:#4a6278; }
+  .terminal-body .highlight { color:var(--yellow); }
+  .terminal-body .success { color:var(--green); }
+  .terminal-body .kw { color:var(--accent3); }
+  .terminal-body .str { color:var(--green); }
+  .terminal-body .flag { color:var(--pink); }
+
+  /* ══ TMUX DIAGRAM ══ */
+  .tmux-diagram {
+    background:#050709;
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    margin:16px 0;
+    font-family:var(--mono);
+  }
+  .tmux-bar {
+    background:#1a2030;
+    padding:6px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:10px;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--border);
+  }
+  .tmux-status { display:flex; gap:10px; }
+  .tmux-win { padding:2px 9px; border-radius:3px; font-size:10px; }
+  .tmux-win.active { background:var(--accent); color:#000; font-weight:700; }
+  .tmux-layout { display:grid; }
+  .tmux-layout.split2 { grid-template-columns:1fr 1fr; }
+  .pane { border:1px solid #1e2535; padding:12px; font-size:11px; line-height:1.8; position:relative; overflow:hidden; }
+  .pane.active { border-color:var(--accent); }
+  .pane.span2 { grid-column:span 2; }
+  .pane-label { position:absolute; top:5px; right:7px; font-size:8px; letter-spacing:1px; color:var(--text-dim); text-transform:uppercase; }
+  .pane-label.al { color:var(--accent); }
+
+  /* ══ KEY TABLE ══ */
+  .key-table { width:100%; border-collapse:collapse; font-size:12px; margin:16px 0; }
+  .key-table thead tr { border-bottom:2px solid var(--accent); }
+  .key-table th { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); padding:9px 12px; text-align:left; }
+  .key-table td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .key-table tr:hover td { background:rgba(255,255,255,.02); }
+  .kbd { display:inline-block; font-family:var(--mono); font-size:10px; background:var(--bg3); border:1px solid var(--border); border-bottom:2px solid var(--border); padding:1px 7px; border-radius:4px; color:var(--yellow); white-space:nowrap; }
+  .tag { display:inline-block; font-family:var(--mono); font-size:9px; padding:1px 6px; border-radius:2px; margin-left:4px; }
+  .tag-green { background:rgba(74,222,128,.14); color:var(--green); }
+  .tag-blue { background:rgba(96,165,250,.14); color:var(--blue); }
+  .tag-purple { background:rgba(124,92,252,.14); color:var(--accent3); }
+
+  /* ══ WORKFLOW ══ */
+  .workflow-step { display:flex; gap:18px; position:relative; }
+  .workflow-step::before { content:''; position:absolute; left:16px; top:36px; bottom:-1px; width:2px; background:var(--border); }
+  .workflow-step:last-child::before { display:none; }
+  .step-num { width:34px; height:34px; min-width:34px; border-radius:50%; background:var(--panel); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent); z-index:1; margin-top:2px; }
+  .step-content { flex:1; padding-bottom:24px; }
+  .step-title { font-weight:700; color:var(--text-bright); font-size:13px; margin-bottom:5px; }
+  .step-desc { font-size:12px; color:var(--text-dim); line-height:1.7; }
+
+  /* ══ CALLOUT ══ */
+  .callout { border-left:3px solid var(--accent); background:rgba(0,212,170,.06); padding:14px 18px; border-radius:0 8px 8px 0; margin:16px 0; font-size:12px; }
+  .callout.warn { border-color:var(--yellow); background:rgba(240,192,64,.06); }
+  .callout.tip  { border-color:var(--accent3); background:rgba(124,92,252,.06); }
+  .callout-head { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:5px; color:var(--accent); }
+  .callout.warn .callout-head { color:var(--yellow); }
+  .callout.tip  .callout-head { color:var(--accent3); }
+
+  /* ══ SESSION MAP ══ */
+  .session-map { font-family:var(--mono); font-size:12px; background:#070910; border:1px solid var(--border); padding:18px 22px; border-radius:8px; line-height:2.1; color:var(--text-dim); margin:14px 0; }
+  .session-map .s-name { color:var(--accent); font-weight:700; }
+  .session-map .w-name { color:var(--blue); }
+  .session-map .p-name { color:var(--yellow); }
+
+  /* ══ COVER ══ */
+  .cover-badge { font-family:var(--mono); font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--accent); border:1px solid var(--accent); padding:5px 16px; border-radius:2px; margin-bottom:40px; }
+  .cover-title { font-size:clamp(50px, 9.5vw, 96px); font-weight:900; line-height:1.0; letter-spacing:-3px; }
+  .cover-title .line1 { color:var(--text-bright); display:block; }
+  .cover-title .sep { font-family:var(--mono); color:var(--accent); font-size:.42em; letter-spacing:0; display:block; margin:10px 0; }
+  .cover-title .line2 { color:transparent; -webkit-text-stroke:1.5px var(--accent3); display:block; }
+  .cover-sub { margin-top:32px; font-size:15px; color:var(--text-dim); max-width:500px; line-height:1.9; }
+  .cover-meta { margin-top:48px; display:flex; gap:32px; font-family:var(--mono); font-size:12px; color:var(--text-dim); }
+  .cover-meta span { color:var(--accent); }
+
+  /* ══ CHAPTER BREAK ══ */
+  .ch-num { font-family:var(--mono); font-size:clamp(80px,14vw,140px); font-weight:700; color:transparent; -webkit-text-stroke:1px var(--border); line-height:1; margin-bottom:24px; }
+  .ch-label { font-family:var(--mono); font-size:10px; letter-spacing:5px; text-transform:uppercase; color:var(--accent); margin-bottom:14px; }
+  .ch-title { font-size:clamp(30px,4.5vw,52px); font-weight:900; color:var(--text-bright); letter-spacing:-1px; margin-bottom:14px; }
+  .ch-desc { font-size:15px; color:var(--text-dim); max-width:480px; line-height:1.8; }
+
+  /* ══ TWO COL ══ */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-bottom:18px; }
+
+  /* ══ DIVIDER ══ */
+  .divider { height:1px; background:linear-gradient(90deg,transparent,var(--border),transparent); margin:20px 0; }
+
+  code { font-family:var(--mono); font-size:11px; background:var(--bg3); border:1px solid var(--border); padding:1px 5px; border-radius:3px; color:var(--accent); }
+
+  /* ══ FOOTER LINKS ══ */
+  .footer-links { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-top:28px; }
+  .footer-links a { font-family:var(--mono); font-size:12px; color:var(--accent3); text-decoration:none; padding:6px 16px; border:1px solid var(--accent3); border-radius:4px; transition:all .2s; }
+  .footer-links a:hover { color:var(--accent); border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div id="progress-bar"></div>
+<div id="toast"></div>
+
+<button id="menu-btn" onclick="toggleMenu()">☰ &nbsp;目录</button>
+
+<div id="slide-menu">
+  <div class="menu-header">幻灯片目录</div>
+</div>
+
+<div id="key-hint">
+  ← → / 空格 &nbsp;翻页<br>
+  PgUp / PgDn &nbsp;翻页<br>
+  Home / End &nbsp;&nbsp;首 / 末页<br>
+  G &nbsp;跳转 &nbsp;·&nbsp; M &nbsp;目录<br>
+  F &nbsp;全屏
+</div>
+
+<div id="nav">
+  <button class="nav-btn" id="btn-first" onclick="goTo(0)" title="首页 (Home)">⇤</button>
+  <button class="nav-btn" id="btn-prev"  onclick="prev()"  title="上一页 (←)">‹</button>
+  <div id="slide-counter"><span class="cur" id="cur">1</span> / <span id="total">1</span></div>
+  <button class="nav-btn" id="btn-next"  onclick="next()"  title="下一页 (→)">›</button>
+  <button class="nav-btn" id="btn-last"  onclick="goTo(slides.length-1)" title="末页 (End)">⇥</button>
+</div>
+
+<!-- ════════════════════════════════════════
+     SLIDES
+════════════════════════════════════════ -->
+<div id="deck">
+
+<!-- 0 · COVER -->
+<div class="slide centered" data-title="封面">
+<div class="slide-inner">
+  <div class="cover-badge">实战培训讲义 · 2025 Edition</div>
+  <div class="cover-title">
+    <span class="line1">Claude Code</span>
+    <span class="sep">×</span>
+    <span class="line2">tmux</span>
+  </div>
+  <p class="cover-sub">在多窗格终端中解锁 AI 辅助编程的全部潜力——<br>会话持久化、并行工作流、生产级协作模式</p>
+  <div class="cover-meta">
+    <div>难度 <span>中级 → 高级</span></div>
+    <div>时长 <span>3–4 小时</span></div>
+    <div>形式 <span>动手实操</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 1 · AGENDA -->
+<div class="slide" data-title="课程大纲">
+<div class="slide-inner">
+  <div class="chapter-num">Overview</div>
+  <h2 class="slide-title">今天我们要学什么</h2>
+  <p class="slide-desc">8 个章节，循序渐进，从原理到实战</p>
+  <div class="card-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="card"><div class="card-icon">🎯</div><div class="card-title">Ch.01 · 动机</div><div class="card-body">为什么 tmux 是 Claude Code 的最佳搭档</div></div>
+    <div class="card"><div class="card-icon">⚙️</div><div class="card-title">Ch.02 · 安装</div><div class="card-body">环境搭建与优化配置</div></div>
+    <div class="card"><div class="card-icon">🏗️</div><div class="card-title">Ch.03 · 概念</div><div class="card-body">Session / Window / Pane 三层结构</div></div>
+    <div class="card"><div class="card-icon">⌨️</div><div class="card-title">Ch.04 · 快捷键</div><div class="card-body">核心操作速查手册</div></div>
+    <div class="card"><div class="card-icon">🔥</div><div class="card-title">Ch.05 · 工作流</div><div class="card-body">三种黄金模式实战</div></div>
+    <div class="card"><div class="card-icon">🤖</div><div class="card-title">Ch.06 · 深度技巧</div><div class="card-body">Claude Code 高级特性</div></div>
+    <div class="card"><div class="card-icon">🧪</div><div class="card-title">Ch.07 · 演练</div><div class="card-body">三级难度动手练习</div></div>
+    <div class="card"><div class="card-icon">🔧</div><div class="card-title">Ch.08 · 排障</div><div class="card-body">常见问题速查解决</div></div>
+  </div>
+</div>
+</div>
+
+<!-- 2 · CH01 BREAK -->
+<div class="slide centered" data-title="Ch.01 背景与动机">
+<div class="slide-inner">
+  <div class="ch-num">01</div>
+  <div class="ch-label">Chapter One</div>
+  <div class="ch-title">为什么需要 tmux？</div>
+  <p class="ch-desc">单一终端窗口限制了 Claude Code 的真实能力——tmux 将改变这一切。</p>
+</div>
+</div>
+
+<!-- 3 · WHY TMUX -->
+<div class="slide" data-title="tmux 的价值">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 01 · 背景与动机</div>
+  <h2 class="slide-title">tmux 解决了什么问题</h2>
+  <p class="slide-desc">Claude Code 是长期运行的 AI Agent，而不是单次命令工具。</p>
+  <div class="card-grid">
+    <div class="card"><div class="card-icon">🔌</div><div class="card-title">会话持久化</div><div class="card-body">SSH 断线、网络抖动不再中断长时间任务。Claude Code 工作进程后台安全运行，随时重新附加。</div></div>
+    <div class="card"><div class="card-icon">⚡</div><div class="card-title">并行工作流</div><div class="card-body">左侧窗格 Claude 生成代码，右侧实时运行测试，底部观察日志——三件事同时进行。</div></div>
+    <div class="card"><div class="card-icon">🔁</div><div class="card-title">上下文隔离</div><div class="card-body">为不同功能、分支分配独立窗口，保持每个 Claude 会话的上下文干净聚焦。</div></div>
+    <div class="card"><div class="card-icon">🤖</div><div class="card-title">脚本自动化</div><div class="card-body">通过 <code>tmux send-keys</code> 向 Claude Code 会话发送命令，实现 CI/CD 集成和批量任务编排。</div></div>
+  </div>
+  <div class="callout">
+    <div class="callout-head">核心理念</div>
+    tmux 正是为长期运行的进程而生。两者的结合不是可选项，是最佳实践。
+  </div>
+</div>
+</div>
+
+<!-- 4 · CH02 BREAK -->
+<div class="slide centered" data-title="Ch.02 安装与配置">
+<div class="slide-inner">
+  <div class="ch-num">02</div>
+  <div class="ch-label">Chapter Two</div>
+  <div class="ch-title">环境搭建</div>
+  <p class="ch-desc">从零开始配置一套专为 Claude Code 优化的 tmux 环境。</p>
+</div>
+</div>
+
+<!-- 5 · INSTALL -->
+<div class="slide" data-title="安装步骤">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 02 · 安装与配置</div>
+  <h2 class="slide-title">安装 Claude Code + tmux</h2>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">依赖检查 & 安装</span></div>
+    <div class="terminal-body">
+<span class="comment"># ── 检查 Node.js 版本 (Claude Code 需要 Node 18+) ──</span><br>
+<span class="prompt">$</span> <span class="cmd">node --version</span><br>
+<span class="out">v22.11.0</span><br><br>
+<span class="comment"># ── 安装 Claude Code ──</span><br>
+<span class="prompt">$</span> <span class="cmd">npm install -g @anthropic-ai/claude-code</span><br>
+<span class="success">+ @anthropic-ai/claude-code@latest</span><br><br>
+<span class="comment"># ── 安装 tmux ──</span><br>
+<span class="prompt">$</span> <span class="cmd">brew install tmux</span>&nbsp;&nbsp;&nbsp;<span class="comment"># macOS</span><br>
+<span class="prompt">$</span> <span class="cmd">sudo apt install tmux</span>&nbsp;<span class="comment"># Ubuntu/Debian</span><br>
+<span class="prompt">$</span> <span class="cmd">sudo dnf install tmux</span>&nbsp;<span class="comment"># Fedora/RHEL</span><br><br>
+<span class="comment"># ── 验证 ──</span><br>
+<span class="prompt">$</span> <span class="cmd">claude --version</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="out">@anthropic-ai/claude-code 1.x.x</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux -V</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="out">tmux 3.4</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 6 · TMUX.CONF -->
+<div class="slide" data-title="~/.tmux.conf 配置">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 02 · 安装与配置</div>
+  <h2 class="slide-title">推荐的 ~/.tmux.conf</h2>
+  <p class="slide-desc">专为 Claude Code 优化的配置，提升日常使用体验。</p>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">~/.tmux.conf · Claude Code 优化版</span></div>
+    <div class="terminal-body">
+<span class="comment"># 前缀键改为 Ctrl+a（更符合人体工学）</span><br>
+<span class="kw">set</span> <span class="flag">-g</span> prefix C-a&nbsp;&nbsp;<span class="kw">unbind</span> C-b&nbsp;&nbsp;<span class="kw">bind</span> C-a <span class="kw">send-prefix</span><br><br>
+<span class="comment"># 鼠标支持 + 256色真彩色</span><br>
+<span class="kw">set</span> <span class="flag">-g</span> mouse on<br>
+<span class="kw">set</span> <span class="flag">-g</span> default-terminal <span class="str">"tmux-256color"</span><br>
+<span class="kw">set</span> <span class="flag">-ag</span> terminal-overrides <span class="str">",xterm-256color:RGB"</span><br><br>
+<span class="comment"># 大历史缓冲区（Claude 输出很长！）</span><br>
+<span class="kw">set</span> <span class="flag">-g</span> history-limit 50000<br><br>
+<span class="comment"># 直觉化分割键</span><br>
+<span class="kw">bind</span> | <span class="kw">split-window</span> <span class="flag">-h</span> <span class="flag">-c</span> <span class="str">"#{pane_current_path}"</span><br>
+<span class="kw">bind</span> - <span class="kw">split-window</span> <span class="flag">-v</span> <span class="flag">-c</span> <span class="str">"#{pane_current_path}"</span><br><br>
+<span class="comment"># Vim 风格导航</span><br>
+<span class="kw">bind</span> h <span class="kw">select-pane</span> <span class="flag">-L</span>&nbsp;&nbsp;<span class="kw">bind</span> l <span class="kw">select-pane</span> <span class="flag">-R</span><br>
+<span class="kw">bind</span> j <span class="kw">select-pane</span> <span class="flag">-D</span>&nbsp;&nbsp;<span class="kw">bind</span> k <span class="kw">select-pane</span> <span class="flag">-U</span><br><br>
+<span class="comment"># 状态栏 + 重载</span><br>
+<span class="kw">set</span> <span class="flag">-g</span> status-style <span class="str">'bg=#1a1e28,fg=#8892a4'</span><br>
+<span class="kw">set</span> <span class="flag">-g</span> window-status-current-style <span class="str">'bg=#00d4aa,fg=#000,bold'</span><br>
+<span class="kw">bind</span> r <span class="kw">source-file</span> ~/.tmux.conf \; <span class="kw">display</span> <span class="str">"✓ 配置已重载"</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 7 · CH03 BREAK -->
+<div class="slide centered" data-title="Ch.03 核心概念">
+<div class="slide-inner">
+  <div class="ch-num">03</div>
+  <div class="ch-label">Chapter Three</div>
+  <div class="ch-title">tmux 三层结构</div>
+  <p class="ch-desc">理解 Session → Window → Pane 的层次关系，是高效使用的基础。</p>
+</div>
+</div>
+
+<!-- 8 · SESSION MAP -->
+<div class="slide" data-title="三层结构详解">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 03 · 核心概念</div>
+  <h2 class="slide-title">Session / Window / Pane</h2>
+  <p class="slide-desc">每个 Git 功能分支对应一个 tmux Window，是最推荐的组织方式。</p>
+  <div class="session-map">
+<span class="s-name">Session: claude-project</span><br>
+├── <span class="w-name">Window 0: feature/auth</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="p-name">Pane 0</span>: claude &nbsp;&nbsp;← AI 对话<br>
+│&nbsp;&nbsp;&nbsp;└── <span class="p-name">Pane 1</span>: pytest --watch<br>
+├── <span class="w-name">Window 1: feature/api</span><br>
+│&nbsp;&nbsp;&nbsp;├── <span class="p-name">Pane 0</span>: claude<br>
+│&nbsp;&nbsp;&nbsp;├── <span class="p-name">Pane 1</span>: uvicorn --reload<br>
+│&nbsp;&nbsp;&nbsp;└── <span class="p-name">Pane 2</span>: httpie / curl<br>
+└── <span class="w-name">Window 2: monitoring</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="p-name">Pane 0</span>: htop<br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="p-name">Pane 1</span>: tail -f logs/app.log
+  </div>
+  <div class="callout tip">
+    <div class="callout-head">💡 最佳实践</div>
+    用 <code>Prefix + ,</code> 将 Window 重命名为分支名，多任务切换时不迷失方向。
+  </div>
+</div>
+</div>
+
+<!-- 9 · LAYOUT VISUAL -->
+<div class="slide" data-title="布局可视化">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 03 · 核心概念</div>
+  <h2 class="slide-title">典型三窗格布局</h2>
+  <p class="slide-desc">Claude 在左侧全高窗格，右侧分为测试与 Git 状态。</p>
+  <div class="tmux-diagram">
+    <div class="tmux-bar">
+      <div class="tmux-status">
+        <span class="tmux-win active">0: claude</span>
+        <span class="tmux-win">1: server</span>
+        <span class="tmux-win">2: logs</span>
+      </div>
+      <span>claude-project · tmux 3.4</span>
+    </div>
+    <div class="tmux-layout split2" style="height:230px;">
+      <div class="pane active" style="grid-row:span 2;">
+        <div class="pane-label al">PANE 0 · ACTIVE</div>
+        <span style="color:var(--accent);">claude&gt;</span> <span style="color:#e2e8f4;">实现用户认证模块...</span><br>
+        <span style="color:var(--text-dim);">● 分析项目结构...</span><br>
+        <span style="color:var(--text-dim);">● 读取 models/user.py...</span><br>
+        <span style="color:var(--green);">● 创建 auth/jwt.py ✓</span><br>
+        <span style="color:var(--green);">● 创建 auth/middleware.py ✓</span><br>
+        <span style="color:var(--yellow);">● 更新 requirements.txt...</span>
+      </div>
+      <div class="pane">
+        <div class="pane-label">PANE 1 · TESTS</div>
+        <span style="color:var(--text-dim);">pytest --watch tests/</span><br>
+        <span style="color:var(--green);">PASSED test_auth::test_login</span><br>
+        <span style="color:var(--red);">FAILED test_auth::test_refresh</span><br>
+        <span style="color:var(--text-dim);">AssertionError: expired</span>
+      </div>
+      <div class="pane">
+        <div class="pane-label">PANE 2 · GIT</div>
+        <span style="color:var(--text-dim);">$ git status</span><br>
+        <span style="color:var(--green);">M auth/jwt.py</span><br>
+        <span style="color:var(--green);">A auth/middleware.py</span><br>
+        <span style="color:var(--yellow);">? tests/test_refresh.py</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 10 · CH04 BREAK -->
+<div class="slide centered" data-title="Ch.04 快捷键速查">
+<div class="slide-inner">
+  <div class="ch-num">04</div>
+  <div class="ch-label">Chapter Four</div>
+  <div class="ch-title">核心快捷键</div>
+  <p class="ch-desc">前缀键 <span style="font-family:var(--mono);color:var(--yellow);">Ctrl+a</span>（按推荐配置）</p>
+</div>
+</div>
+
+<!-- 11 · KEYS SESSION/WINDOW -->
+<div class="slide" data-title="Session & Window 快捷键">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 04 · 快捷键速查</div>
+  <h2 class="slide-title">Session & Window 操作</h2>
+  <div class="two-col">
+    <div>
+      <p style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Session</p>
+      <table class="key-table">
+        <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td><span class="kbd">Prefix + d</span></td><td class="desc">分离（后台保持运行）</td></tr>
+          <tr><td><span class="kbd">Prefix + s</span></td><td class="desc">列出所有会话并切换</td></tr>
+          <tr><td><span class="kbd">Prefix + $</span></td><td class="desc">重命名当前会话</td></tr>
+          <tr><td><span class="kbd">tmux ls</span></td><td class="desc">查看所有会话</td></tr>
+          <tr><td><span class="kbd">tmux attach -t 名</span></td><td class="desc">重新附加到会话</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <p style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">Window</p>
+      <table class="key-table">
+        <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td><span class="kbd">Prefix + c</span></td><td class="desc">新建窗口</td></tr>
+          <tr><td><span class="kbd">Prefix + ,</span></td><td class="desc">重命名当前窗口</td></tr>
+          <tr><td><span class="kbd">Prefix + n / p</span></td><td class="desc">下 / 上一个窗口</td></tr>
+          <tr><td><span class="kbd">Prefix + 0-9</span></td><td class="desc">按编号跳转</td></tr>
+          <tr><td><span class="kbd">Prefix + w</span></td><td class="desc">窗口列表预览</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="callout">
+    <div class="callout-head">使用场景</div>
+    每次开始新功能：<code>Prefix+c</code> 新建窗口 → <code>Prefix+,</code> 命名为分支名 → 启动 Claude
+  </div>
+</div>
+</div>
+
+<!-- 12 · KEYS PANE -->
+<div class="slide" data-title="Pane & 复制模式快捷键">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 04 · 快捷键速查</div>
+  <h2 class="slide-title">Pane 操作 & 复制模式</h2>
+  <div class="two-col">
+    <div>
+      <p style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">窗格操作</p>
+      <table class="key-table">
+        <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td><span class="kbd">Prefix + |</span></td><td class="desc">垂直分割（自定义）</td></tr>
+          <tr><td><span class="kbd">Prefix + -</span></td><td class="desc">水平分割（自定义）</td></tr>
+          <tr><td><span class="kbd">Prefix + h/j/k/l</span></td><td class="desc">Vim 风格切换</td></tr>
+          <tr><td><span class="kbd">Prefix + z</span></td><td class="desc">最大化 / 还原</td></tr>
+          <tr><td><span class="kbd">Prefix + x</span></td><td class="desc">关闭当前窗格</td></tr>
+          <tr><td><span class="kbd">Prefix + q</span></td><td class="desc">显示窗格编号</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <p style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:10px;">复制模式（查看 Claude 长输出）</p>
+      <table class="key-table">
+        <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
+        <tbody>
+          <tr><td><span class="kbd">Prefix + [</span></td><td class="desc">进入复制模式</td></tr>
+          <tr><td><span class="kbd">/ + 关键词</span></td><td class="desc">向前搜索</td></tr>
+          <tr><td><span class="kbd">Space</span></td><td class="desc">开始选择</td></tr>
+          <tr><td><span class="kbd">Enter</span></td><td class="desc">复制选中内容</td></tr>
+          <tr><td><span class="kbd">q</span></td><td class="desc">退出复制模式</td></tr>
+          <tr><td><span class="kbd">Prefix + ]</span></td><td class="desc">粘贴缓冲区</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 13 · CH05 BREAK -->
+<div class="slide centered" data-title="Ch.05 黄金工作流">
+<div class="slide-inner">
+  <div class="ch-num">05</div>
+  <div class="ch-label">Chapter Five</div>
+  <div class="ch-title">黄金工作流模式</div>
+  <p class="ch-desc">三种经过验证的模式，适用于不同规模和类型的开发任务。</p>
+</div>
+</div>
+
+<!-- 14 · PATTERN A -->
+<div class="slide" data-title="Pattern A · 测试反馈循环">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 05 · Pattern A</div>
+  <h2 class="slide-title">🔥 代码生成 + 测试反馈循环</h2>
+  <p class="slide-desc">最常用模式 · 适合日常功能开发</p>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">一键初始化标准开发会话</span></div>
+    <div class="terminal-body">
+<span class="comment"># 创建会话并分割三窗格</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux new-session -d -s dev -n claude</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux split-window -h -t dev:claude</span>&nbsp;&nbsp;&nbsp;<span class="comment"># 右侧窗格</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux split-window -v -t dev:claude.1</span>&nbsp;<span class="comment"># 右下窗格</span><br><br>
+<span class="comment"># 各窗格启动对应进程</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.0 'claude' Enter</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.1 'npm test -- --watch' Enter</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.2 'git log --oneline -10' Enter</span><br><br>
+<span class="comment"># 附加并开始工作</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux attach-session -t dev</span>
+    </div>
+  </div>
+  <div class="callout tip">
+    <div class="callout-head">工作循环</div>
+    Claude 生成代码 → 测试窗格自动检测变更 → 看到失败 → 切换 Claude 窗格粘贴错误 → Claude 修复 → 重复
+  </div>
+</div>
+</div>
+
+<!-- 15 · PATTERN B -->
+<div class="slide" data-title="Pattern B · 多 Agent 并行">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 05 · Pattern B</div>
+  <h2 class="slide-title">🚀 多 Agent 并行开发</h2>
+  <p class="slide-desc">高级模式 · 多功能并行，显著提升整体速度</p>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">多分支并行会话</span></div>
+    <div class="terminal-body">
+<span class="comment"># 为每个功能分支创建独立 Claude 会话</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux new-session -d -s auth</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t auth 'git checkout feature/auth && claude' Enter</span><br><br>
+<span class="prompt">$</span> <span class="cmd">tmux new-session -d -s api</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t api 'git checkout feature/api && claude' Enter</span><br><br>
+<span class="prompt">$</span> <span class="cmd">tmux new-session -d -s ui</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux send-keys -t ui 'git checkout feature/ui && claude' Enter</span><br><br>
+<span class="comment"># 查看所有并行会话 · 快速切换</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux ls</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="out">auth: 1w · api: 1w · ui: 1w</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux switch-client -t api</span>
+    </div>
+  </div>
+  <div class="callout warn">
+    <div class="callout-head">⚠️ 注意</div>
+    并行多个 Claude 实例消耗更多 API 用量，建议先掌握单 Agent 流程再扩展。
+  </div>
+</div>
+</div>
+
+<!-- 16 · PATTERN C -->
+<div class="slide" data-title="Pattern C · 脚本自动化">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 05 · Pattern C</div>
+  <h2 class="slide-title">🤖 自动化脚本驱动</h2>
+  <p class="slide-desc">CI/CD 集成 · 无人值守批处理</p>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">auto-claude.sh</span></div>
+    <div class="terminal-body">
+<span class="kw">#!/bin/bash</span><br>
+SESSION=<span class="str">"claude-auto"</span>&nbsp;&nbsp;TASK=<span class="str">"$1"</span><br><br>
+<span class="kw">if</span> ! tmux has-session <span class="flag">-t</span> $SESSION 2>/dev/null; <span class="kw">then</span><br>
+&nbsp;&nbsp;tmux new-session <span class="flag">-d</span> <span class="flag">-s</span> $SESSION<br>
+&nbsp;&nbsp;tmux send-keys <span class="flag">-t</span> $SESSION <span class="str">'claude'</span> Enter<br>
+&nbsp;&nbsp;sleep 3&nbsp;&nbsp;<span class="comment"># 等待 Claude 初始化</span><br>
+<span class="kw">fi</span><br><br>
+<span class="comment"># 发送任务并附加观察</span><br>
+tmux send-keys <span class="flag">-t</span> $SESSION <span class="str">"$TASK"</span> Enter<br>
+tmux attach <span class="flag">-t</span> $SESSION<br><br>
+<span class="comment"># 使用: ./auto-claude.sh "审查 src/ 目录的安全漏洞"</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 17 · CH06 BREAK -->
+<div class="slide centered" data-title="Ch.06 深度技巧">
+<div class="slide-inner">
+  <div class="ch-num">06</div>
+  <div class="ch-label">Chapter Six</div>
+  <div class="ch-title">Claude Code 深度技巧</div>
+  <p class="ch-desc">充分利用 Claude Code 的高级特性，在 tmux 环境中发挥最大效能。</p>
+</div>
+</div>
+
+<!-- 18 · FEATURES -->
+<div class="slide" data-title="五大高效组合技">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 06 · 深度技巧</div>
+  <h2 class="slide-title">五大高效组合技</h2>
+
+  <div class="workflow-step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">会话恢复后的上下文重建</div>
+      <div class="step-desc">SSH 断线后 <code>tmux attach -t dev</code> 恢复，Claude 对话历史完整保留。使用 <code>/resume</code> 要求 Claude 总结进度并继续。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">跨窗格的错误注入</div>
+      <div class="step-desc">测试窗格失败后，<code>Prefix + [</code> 复制模式选中错误信息，<code>Prefix + ]</code> 粘贴到 Claude 窗格，即时修复。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">CLAUDE.md 统一多 Agent 规范</div>
+      <div class="step-desc">根目录的 <code>CLAUDE.md</code> 定义架构约束、代码风格。所有并行 Claude 实例自动读取，确保多 Agent 输出一致性。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">--print 模式管道集成</div>
+      <div class="step-desc">非交互窗格使用 <code>claude -p "分析代码" &lt; file.py | tee report.md</code> 将 AI 分析输出到文件，供其他工具消费。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <div class="step-title">send-keys 实现远程 Claude 编排</div>
+      <div class="step-desc">通过 <code>tmux send-keys -t session "任务描述" Enter</code> 从脚本或 CI 系统远程驱动 Claude 完成任务。</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 19 · CLAUDE.MD -->
+<div class="slide" data-title="CLAUDE.md 示例">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 06 · 深度技巧</div>
+  <h2 class="slide-title">CLAUDE.md 项目规范</h2>
+  <p class="slide-desc">放置于项目根目录，所有 Claude 实例自动遵守。</p>
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">CLAUDE.md · 示例</span></div>
+    <div class="terminal-body">
+<span class="highlight">## 技术栈</span><br>
+- Python 3.11, FastAPI, PostgreSQL, Redis<br>
+- 测试: pytest + httpx&nbsp;&nbsp;&nbsp;&nbsp;代码风格: Black + ruff<br><br>
+<span class="highlight">## 架构规范</span><br>
+- 数据库操作必须通过 Repository 模式<br>
+- 业务逻辑放在 services/ 层，禁止出现在路由中<br>
+- 敏感配置从环境变量读取，禁止硬编码<br><br>
+<span class="highlight">## 禁止事项</span><br>
+- 不得使用同步 ORM&nbsp;&nbsp;不得引入全局状态&nbsp;&nbsp;不得跳过类型注解<br><br>
+<span class="highlight">## 测试要求</span><br>
+- 新功能必须包含单元测试，覆盖率 ≥ 80%<br>
+- API 端点必须有集成测试
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 20 · CH07 BREAK -->
+<div class="slide centered" data-title="Ch.07 动手演练">
+<div class="slide-inner">
+  <div class="ch-num">07</div>
+  <div class="ch-label">Chapter Seven</div>
+  <div class="ch-title">动手练习</div>
+  <p class="ch-desc">完成以下练习，巩固所学内容。建议配对练习。</p>
+</div>
+</div>
+
+<!-- 21 · EXERCISES -->
+<div class="slide" data-title="三级难度练习">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 07 · 动手演练</div>
+  <h2 class="slide-title">三级难度练习</h2>
+  <div class="card-grid" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="card" style="border-color:#4ade8033;">
+      <div class="card-icon">🟢</div>
+      <div class="card-title">练习 1 · 基础（15 min）</div>
+      <div class="card-body">创建名为 <code>training</code> 的 tmux 会话，分割 2 个窗格，左侧启动 Claude Code，右侧运行 <code>watch -n1 date</code>。练习窗格切换、最大化还原、重命名窗口。</div>
+    </div>
+    <div class="card" style="border-color:#f0c04033;">
+      <div class="card-icon">🟡</div>
+      <div class="card-title">练习 2 · 进阶（30 min）</div>
+      <div class="card-body">用 Claude Code 创建简单 Todo API。三窗格：左侧 Claude 生成代码，右上 httpie 测试，右下监控日志。体验完整开发反馈循环。</div>
+    </div>
+    <div class="card" style="border-color:#f8717133;">
+      <div class="card-icon">🔴</div>
+      <div class="card-title">练习 3 · 挑战（45 min）</div>
+      <div class="card-body">编写 shell 脚本，一键创建 3 个功能分支的并行 Claude 会话，每个自动切换对应分支并启动 Claude。加分：断线后恢复所有会话。</div>
+    </div>
+  </div>
+  <div class="callout warn">
+    <div class="callout-head">⚠️ 注意事项</div>
+    并行多个 Claude Code 实例会消耗更多 API 用量。学习阶段建议从单会话开始，熟悉后再扩展到多 Agent 模式。
+  </div>
+</div>
+</div>
+
+<!-- 22 · CH08 BREAK -->
+<div class="slide centered" data-title="Ch.08 故障排查">
+<div class="slide-inner">
+  <div class="ch-num">08</div>
+  <div class="ch-label">Chapter Eight</div>
+  <div class="ch-title">故障排查</div>
+  <p class="ch-desc">遇到问题不要慌，大多数问题都有固定的排查路径。</p>
+</div>
+</div>
+
+<!-- 23 · TROUBLESHOOT -->
+<div class="slide" data-title="常见问题速查">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 08 · 故障排查</div>
+  <h2 class="slide-title">常见问题 & 解决方案</h2>
+  <table class="key-table">
+    <thead><tr><th>问题现象</th><th>可能原因</th><th>解决方案</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--red);">Claude 输出截断</td><td class="desc">历史缓冲区太小</td><td><code>set -g history-limit 50000</code></td></tr>
+      <tr><td style="color:var(--red);">颜色显示异常</td><td class="desc">TERM 变量不正确</td><td><code>default-terminal "tmux-256color"</code></td></tr>
+      <tr><td style="color:var(--red);">SSH 断线后会话消失</td><td class="desc">未使用 tmux 启动</td><td>所有工作在 tmux 内启动，<code>attach</code> 重连</td></tr>
+      <tr><td style="color:var(--red);">send-keys 无响应</td><td class="desc">目标窗格编号错误</td><td><code>tmux list-panes -a</code> 确认目标</td></tr>
+      <tr><td style="color:var(--red);">Claude 忘记上下文</td><td class="desc">超过上下文限制</td><td>新建窗口，重新加载 CLAUDE.md</td></tr>
+      <tr><td style="color:var(--red);">鼠标选择文字困难</td><td class="desc">tmux 截获鼠标事件</td><td>按住 <span class="kbd">Shift</span> 再拖动鼠标</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<!-- 24 · END -->
+<div class="slide centered" data-title="结束页">
+<div class="slide-inner">
+  <div style="font-size:56px;margin-bottom:28px;">🤖</div>
+  <div style="font-family:var(--mono);font-size:26px;font-weight:700;color:var(--accent);margin-bottom:14px;">Claude Code × tmux</div>
+  <div style="color:var(--text-dim);font-size:15px;line-height:1.9;max-width:480px;margin-bottom:36px;">
+    让 AI 辅助编程真正成为你工作流的一部分。<br>
+    会话持久，思路不断；并行运行，效率倍增。
+  </div>
+  <div class="footer-links">
+    <a href="https://docs.claude.com/en/docs/claude-code/overview" target="_blank">Claude Code 文档 ↗</a>
+    <a href="https://github.com/tmux/tmux/wiki" target="_blank">tmux Wiki ↗</a>
+    <a href="https://www.anthropic.com" target="_blank">Anthropic ↗</a>
+  </div>
+  <div style="margin-top:40px;font-family:var(--mono);font-size:10px;color:var(--border);">
+    培训讲义 · 请根据实际版本核对命令细节
+  </div>
+</div>
+</div>
+
+</div><!-- /#deck -->
+
+<script>
+// ════════════════════════════════
+//  ENGINE
+// ════════════════════════════════
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+let busy = false;
+
+// Build menu
+const menu = document.getElementById('slide-menu');
+slides.forEach((s, i) => {
+  const item = document.createElement('div');
+  item.className = 'menu-item';
+  item.dataset.idx = i;
+  item.innerHTML = `<span class="menu-num">${String(i+1).padStart(2,'0')}</span>${s.dataset.title || 'Slide ' + (i+1)}`;
+  item.addEventListener('click', () => { goTo(i); closeMenu(); });
+  menu.appendChild(item);
+});
+
+document.getElementById('total').textContent = slides.length;
+
+function updateUI() {
+  document.getElementById('cur').textContent = current + 1;
+  const pct = slides.length > 1 ? (current / (slides.length - 1)) * 100 : 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('btn-prev').disabled  = current === 0;
+  document.getElementById('btn-next').disabled  = current === slides.length - 1;
+  document.getElementById('btn-first').disabled = current === 0;
+  document.getElementById('btn-last').disabled  = current === slides.length - 1;
+  document.querySelectorAll('.menu-item').forEach((el, i) => el.classList.toggle('active', i === current));
+}
+
+function goTo(n) {
+  if (busy || n === current || n < 0 || n >= slides.length) return;
+  busy = true;
+
+  const out = slides[current];
+  const inn = slides[n];
+
+  // Exit current
+  out.classList.add('exit-up');
+
+  // Prepare incoming without transition
+  inn.classList.add('enter-from-below');
+  // Force reflow
+  inn.getBoundingClientRect();
+
+  // Activate
+  out.classList.remove('active');
+  inn.classList.remove('enter-from-below');
+  inn.classList.add('active');
+
+  setTimeout(() => {
+    out.classList.remove('exit-up');
+    busy = false;
+    // Reset scroll
+    const inner = inn.querySelector('.slide-inner');
+    if (inner) inner.scrollTop = 0;
+  }, 420);
+
+  current = n;
+  updateUI();
+}
+
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+// ════════════════════════════════
+//  MENU
+// ════════════════════════════════
+let menuOpen = false;
+
+function toggleMenu() {
+  menuOpen = !menuOpen;
+  document.getElementById('slide-menu').classList.toggle('open', menuOpen);
+}
+
+function closeMenu() {
+  menuOpen = false;
+  document.getElementById('slide-menu').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (menuOpen && !e.target.closest('#slide-menu') && !e.target.closest('#menu-btn')) closeMenu();
+});
+
+// ════════════════════════════════
+//  TOAST
+// ════════════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ════════════════════════════════
+//  KEYBOARD
+// ════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+  // For scrollable slides: only flip page when at boundary
+  const activeInner = slides[current]?.querySelector('.slide-inner');
+  const scrollable = activeInner && activeInner.scrollHeight > activeInner.clientHeight + 4;
+  const atBottom = scrollable && (activeInner.scrollTop + activeInner.clientHeight >= activeInner.scrollHeight - 6);
+  const atTop    = scrollable && (activeInner.scrollTop <= 4);
+
+  switch (e.key) {
+    case 'ArrowRight':
+    case ' ':
+      e.preventDefault(); next(); break;
+
+    case 'ArrowLeft':
+      e.preventDefault(); prev(); break;
+
+    case 'ArrowDown':
+      if (!scrollable || atBottom) { e.preventDefault(); next(); }
+      break;
+
+    case 'ArrowUp':
+      if (!scrollable || atTop) { e.preventDefault(); prev(); }
+      break;
+
+    case 'PageDown':
+      e.preventDefault(); next(); break;
+
+    case 'PageUp':
+      e.preventDefault(); prev(); break;
+
+    case 'Home':
+      e.preventDefault(); goTo(0); showToast('⇤ 第一页'); break;
+
+    case 'End':
+      e.preventDefault(); goTo(slides.length - 1); showToast('⇥ 最后一页'); break;
+
+    case 'g': case 'G': {
+      e.preventDefault();
+      const raw = prompt(`跳转到第几页？（1–${slides.length}）`);
+      if (raw === null) break;
+      const n = parseInt(raw);
+      if (!isNaN(n) && n >= 1 && n <= slides.length) {
+        goTo(n - 1); showToast(`→ 第 ${n} 页`);
+      }
+      break;
+    }
+
+    case 'm': case 'M':
+      e.preventDefault(); toggleMenu(); break;
+
+    case 'Escape':
+      if (menuOpen) closeMenu(); break;
+
+    case 'f': case 'F':
+      e.preventDefault();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        showToast('⛶ 全屏');
+      } else {
+        document.exitFullscreen?.();
+        showToast('退出全屏');
+      }
+      break;
+  }
+});
+
+// ════════════════════════════════
+//  TOUCH / SWIPE
+// ════════════════════════════════
+let tx = 0, ty = 0;
+document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    dx < 0 ? next() : prev();
+  }
+}, { passive: true });
+
+// ════════════════════════════════
+//  INIT
+// ════════════════════════════════
+slides[0].classList.add('active');
+updateUI();
+</script>
+</body>
+</html>
