@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw × NVIDIA 免费 API 配置讲义</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent:  #00d4aa;
+    --accent2: #ff6b35;
+    --accent3: #7c5cfc;
+    --green:   #4ade80;
+    --red:     #f87171;
+    --blue:    #60a5fa;
+    --pink:    #f472b6;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Noto Serif SC', serif;
+    --transition-theme: background .35s ease, color .35s ease, border-color .35s ease;
+  }
+  [data-theme="dark"] {
+    --bg:#0d0f14; --bg2:#13161d; --bg3:#1a1e28; --panel:#1e2330; --border:#2a3045;
+    --text:#e2e8f4; --text-dim:#8892a4; --text-bright:#ffffff;
+    --term-bg:#0a0c10; --term-comment:#3d4f66; --term-out:#4a6278;
+    --grid-color:rgba(0,212,170,.022); --nav-bg:rgba(13,15,20,.88);
+    --kbd-bg:#1a1e28; --yellow-display:#f0c040;
+  }
+  [data-theme="light"] {
+    --bg:#f4f6fb; --bg2:#eaecf4; --bg3:#dde1ee; --panel:#ffffff; --border:#c8cfe0;
+    --text:#2a3050; --text-dim:#6b7599; --text-bright:#0d1020;
+    --term-bg:#1a1d28; --term-comment:#5a7a96; --term-out:#7a98b0;
+    --grid-color:rgba(0,140,110,.04); --nav-bg:rgba(244,246,251,.92);
+    --kbd-bg:#eaecf4; --yellow-display:#b07800;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--serif);transition:var(--transition-theme);}
+  .no-transition *{transition:none !important;}
+
+  /* ── SLIDE ENGINE ── */
+  #deck{width:100%;height:100%;position:relative;}
+  .slide{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:56px 80px 80px;opacity:0;pointer-events:none;transform:translateY(36px);transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.4,0,.2,1);}
+  .slide.active{opacity:1;pointer-events:all;transform:translateY(0);}
+  .slide.exit-up{opacity:0!important;transform:translateY(-36px)!important;transition:opacity .3s ease,transform .3s ease!important;}
+  .slide.enter-from-below{opacity:0;transform:translateY(56px);transition:none!important;}
+  .slide-inner{width:100%;max-width:960px;max-height:calc(100vh - 136px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .slide-inner::-webkit-scrollbar{width:4px;}
+  .slide-inner::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .slide.centered{text-align:center;}
+  .slide.centered .slide-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:visible;max-height:100%;}
+
+  /* ── PROGRESS ── */
+  #progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent3));transition:width .4s ease;z-index:100;box-shadow:0 0 10px var(--accent);}
+
+  /* ── NAV ── */
+  #nav{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;z-index:100;background:var(--nav-bg);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:40px;padding:9px 18px;transition:var(--transition-theme);}
+  .nav-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;user-select:none;flex-shrink:0;}
+  .nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:rgba(0,212,170,.08);}
+  .nav-btn:disabled{opacity:.28;cursor:default;}
+  #slide-counter{font-family:var(--mono);font-size:12px;color:var(--text-dim);min-width:64px;text-align:center;user-select:none;}
+  #slide-counter .cur{color:var(--accent);font-weight:700;}
+
+  /* ── TOP CONTROLS ── */
+  #top-controls{position:fixed;top:18px;right:22px;z-index:200;display:flex;align-items:center;gap:8px;}
+  #theme-track{width:40px;height:22px;border-radius:11px;background:var(--bg3);border:1px solid var(--border);position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;}
+  #theme-track::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--text-dim);transition:transform .3s,background .3s;}
+  [data-theme="light"] #theme-track{background:var(--accent);}
+  [data-theme="light"] #theme-track::after{transform:translateX(18px);background:#fff;}
+  #menu-btn{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-family:var(--mono);font-size:11px;color:var(--text-dim);cursor:pointer;letter-spacing:1px;transition:all .2s;}
+  #menu-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ── SLIDE MENU ── */
+  #slide-menu{position:fixed;top:0;right:0;width:300px;height:100%;background:var(--bg2);border-left:1px solid var(--border);z-index:150;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;padding:56px 0 40px;}
+  #slide-menu.open{transform:translateX(0);}
+  .menu-header{padding:0 24px 16px;font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:6px;}
+  .menu-item{padding:11px 24px;cursor:pointer;font-size:12px;color:var(--text-dim);border-left:3px solid transparent;transition:all .15s;display:flex;align-items:center;gap:10px;}
+  .menu-item:hover{color:var(--text);background:rgba(0,0,0,.04);}
+  [data-theme="dark"] .menu-item:hover{background:rgba(255,255,255,.03);}
+  .menu-item.active{color:var(--accent);border-color:var(--accent);background:rgba(0,212,170,.06);}
+  .menu-num{font-family:var(--mono);font-size:9px;color:var(--border);min-width:22px;}
+
+  /* ── KEY HINT ── */
+  #key-hint{position:fixed;bottom:28px;right:22px;z-index:90;font-family:var(--mono);font-size:9px;color:var(--border);text-align:right;line-height:2;pointer-events:none;user-select:none;}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;top:22px;left:50%;transform:translateX(-50%) translateY(-70px);background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:9px 22px;font-family:var(--mono);font-size:12px;color:var(--accent);z-index:300;transition:transform .28s ease;white-space:nowrap;}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+
+  /* ── BG GRID ── */
+  .bg-grid{position:fixed;inset:0;background-image:linear-gradient(var(--grid-color) 1px,transparent 1px),linear-gradient(90deg,var(--grid-color) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0;transition:var(--transition-theme);}
+
+  /* ── TYPOGRAPHY ── */
+  .chapter-num{font-family:var(--mono);font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:12px;}
+  .chapter-num::after{content:'';width:60px;height:1px;background:var(--border);}
+  .slide-title{font-size:clamp(24px,3.2vw,38px);font-weight:900;color:var(--text-bright);letter-spacing:-1px;margin-bottom:10px;line-height:1.2;}
+  .slide-desc{color:var(--text-dim);font-size:14px;margin-bottom:32px;max-width:580px;line-height:1.8;}
+
+  /* ── CARDS ── */
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:13px;margin-bottom:24px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;transition:border-color .2s,transform .2s,background .35s;position:relative;overflow:hidden;}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:0;transition:opacity .2s;}
+  .card:hover::before{opacity:1;}
+  .card-icon{font-size:22px;margin-bottom:10px;}
+  .card-title{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-bright);margin-bottom:7px;}
+  .card-body{font-size:11px;color:var(--text-dim);line-height:1.7;}
+
+  /* ── TERMINAL ── */
+  .terminal{background:var(--term-bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:16px 0;font-family:var(--mono);transition:border-color .35s;}
+  .terminal-bar{background:var(--bg3);padding:8px 14px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g{background:#28c840;}
+  .terminal-label{font-size:10px;color:var(--text-dim);margin-left:6px;letter-spacing:1px;}
+  .terminal-body{padding:16px 20px;font-size:12px;line-height:1.9;overflow-x:auto;}
+  .terminal-body .prompt{color:var(--accent);}
+  .terminal-body .cmd{color:var(--text-bright);}
+  .terminal-body .comment{color:var(--term-comment);}
+  .terminal-body .out{color:var(--term-out);}
+  .terminal-body .highlight{color:var(--yellow-display);}
+  .terminal-body .success{color:var(--green);}
+  .terminal-body .kw{color:var(--accent3);}
+  .terminal-body .str{color:var(--green);}
+  .terminal-body .flag{color:var(--pink);}
+  .terminal-body .key{color:var(--blue);}
+  .terminal-body .val{color:var(--yellow-display);}
+
+  /* ── KEY TABLE ── */
+  .key-table{width:100%;border-collapse:collapse;font-size:12px;margin:16px 0;}
+  .key-table thead tr{border-bottom:2px solid var(--accent);}
+  .key-table th{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);padding:9px 12px;text-align:left;}
+  .key-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;transition:border-color .35s;}
+  .key-table tr:hover td{background:rgba(0,0,0,.03);}
+  [data-theme="dark"] .key-table tr:hover td{background:rgba(255,255,255,.02);}
+  .kbd{display:inline-block;font-family:var(--mono);font-size:10px;background:var(--kbd-bg);border:1px solid var(--border);border-bottom:2px solid var(--border);padding:1px 7px;border-radius:4px;color:var(--yellow-display);white-space:nowrap;transition:background .35s,border-color .35s,color .35s;}
+
+  /* ── WORKFLOW ── */
+  .workflow-step{display:flex;gap:18px;position:relative;}
+  .workflow-step::before{content:'';position:absolute;left:16px;top:36px;bottom:-1px;width:2px;background:var(--border);}
+  .workflow-step:last-child::before{display:none;}
+  .step-num{width:34px;height:34px;min-width:34px;border-radius:50%;background:var(--panel);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);z-index:1;margin-top:2px;transition:background .35s;}
+  .step-content{flex:1;padding-bottom:24px;}
+  .step-title{font-weight:700;color:var(--text-bright);font-size:13px;margin-bottom:5px;}
+  .step-desc{font-size:12px;color:var(--text-dim);line-height:1.7;}
+
+  /* ── CALLOUT ── */
+  .callout{border-left:3px solid var(--accent);background:rgba(0,212,170,.06);padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0;font-size:12px;}
+  .callout.warn{border-color:var(--accent2);background:rgba(255,107,53,.06);}
+  .callout.tip{border-color:var(--accent3);background:rgba(124,92,252,.06);}
+  .callout-head{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;color:var(--accent);}
+  .callout.warn .callout-head{color:var(--accent2);}
+  .callout.tip .callout-head{color:var(--accent3);}
+
+  /* ── TWO COL ── */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:18px;}
+
+  code{font-family:var(--mono);font-size:11px;background:var(--bg3);border:1px solid var(--border);padding:1px 5px;border-radius:3px;color:var(--accent);transition:background .35s,border-color .35s;}
+
+  /* ── COVER ── */
+  .cover-badge{font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);padding:5px 16px;border-radius:2px;margin-bottom:40px;}
+  .cover-title{font-size:clamp(44px,8.5vw,88px);font-weight:900;line-height:1.0;letter-spacing:-3px;}
+  .cover-title .line1{color:var(--text-bright);display:block;}
+  .cover-title .sep{font-family:var(--mono);color:var(--accent);font-size:.4em;letter-spacing:0;display:block;margin:10px 0;}
+  .cover-title .line2{color:transparent;-webkit-text-stroke:1.5px var(--accent3);display:block;}
+  .cover-sub{margin-top:32px;font-size:15px;color:var(--text-dim);max-width:520px;line-height:1.9;}
+  .cover-meta{margin-top:48px;display:flex;gap:32px;font-family:var(--mono);font-size:12px;color:var(--text-dim);}
+  .cover-meta span{color:var(--accent);}
+
+  /* ── CHAPTER BREAK ── */
+  .ch-num{font-family:var(--mono);font-size:clamp(80px,14vw,140px);font-weight:700;color:transparent;-webkit-text-stroke:1px var(--border);line-height:1;margin-bottom:24px;}
+  .ch-label{font-family:var(--mono);font-size:10px;letter-spacing:5px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+  .ch-title{font-size:clamp(28px,4.5vw,50px);font-weight:900;color:var(--text-bright);letter-spacing:-1px;margin-bottom:14px;}
+  .ch-desc{font-size:15px;color:var(--text-dim);max-width:480px;line-height:1.8;}
+
+  /* ── FOOTER LINKS ── */
+  .footer-links{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin-top:28px;}
+  .footer-links a{font-family:var(--mono);font-size:12px;color:var(--accent3);text-decoration:none;padding:6px 16px;border:1px solid var(--accent3);border-radius:4px;transition:all .2s;}
+  .footer-links a:hover{color:var(--accent);border-color:var(--accent);}
+
+  /* ── MODEL BADGE ── */
+  .model-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--panel);color:var(--text-dim);transition:all .2s;}
+  .model-badge.green{border-color:var(--green);color:var(--green);background:rgba(74,222,128,.08);}
+  .model-badge.blue{border-color:var(--blue);color:var(--blue);background:rgba(96,165,250,.08);}
+  .model-badge.purple{border-color:var(--accent3);color:var(--accent3);background:rgba(124,92,252,.08);}
+  .badge-row{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;}
+
+  /* ── JSON BLOCK ── */
+  .json-block{background:var(--term-bg);border:1px solid var(--border);border-radius:8px;padding:16px 20px;font-family:var(--mono);font-size:12px;line-height:1.9;overflow-x:auto;margin:14px 0;}
+  .json-block .jk{color:var(--blue);}
+  .json-block .jv{color:var(--green);}
+  .json-block .jn{color:var(--yellow-display);}
+  .json-block .jc{color:var(--term-comment);}
+  .json-block .jp{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div id="progress-bar"></div>
+<div id="toast"></div>
+
+<div id="top-controls">
+  <span style="font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:1px;" id="theme-label">DARK</span>
+  <div id="theme-track" onclick="toggleTheme()" title="切换亮暗色 (T)"></div>
+  <button id="menu-btn" onclick="toggleMenu()">☰ &nbsp;目录</button>
+</div>
+
+<div id="slide-menu"><div class="menu-header">幻灯片目录</div></div>
+
+<div id="key-hint">
+  ← → / 空格 &nbsp;翻页<br>
+  PgUp / PgDn &nbsp;翻页<br>
+  Home / End &nbsp;&nbsp;首 / 末页<br>
+  G &nbsp;跳转 &nbsp;·&nbsp; M &nbsp;目录<br>
+  T &nbsp;亮暗切换 &nbsp;·&nbsp; F &nbsp;全屏
+</div>
+
+<div id="nav">
+  <button class="nav-btn" id="btn-first" onclick="goTo(0)" title="首页">⇤</button>
+  <button class="nav-btn" id="btn-prev"  onclick="prev()"  title="上一页">‹</button>
+  <div id="slide-counter"><span class="cur" id="cur">1</span> / <span id="total">1</span></div>
+  <button class="nav-btn" id="btn-next"  onclick="next()"  title="下一页">›</button>
+  <button class="nav-btn" id="btn-last"  onclick="goTo(slides.length-1)" title="末页">⇥</button>
+</div>
+
+<div id="deck">
+
+<!-- 0 · COVER -->
+<div class="slide centered" data-title="封面">
+<div class="slide-inner">
+  <div class="cover-badge">实战配置教程 · 2026 · 国内零门槛</div>
+  <div class="cover-title">
+    <span class="line1">OpenClaw</span>
+    <span class="sep">×</span>
+    <span class="line2">NVIDIA 免费 API</span>
+  </div>
+  <p class="cover-sub">GLM-4.7 + MiniMax M2.1 接入指南<br>国内直连 · 无需代理 · 零成本白嫖顶级大模型</p>
+  <div class="cover-meta">
+    <div>难度 <span>入门</span></div>
+    <div>时长 <span>15 分钟</span></div>
+    <div>费用 <span>完全免费</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 1 · AGENDA -->
+<div class="slide" data-title="课程大纲">
+<div class="slide-inner">
+  <div class="chapter-num">Overview</div>
+  <h2 class="slide-title">今天我们要做什么</h2>
+  <p class="slide-desc">5 个步骤，15 分钟内让 OpenClaw 跑在免费的国产顶级大模型上</p>
+  <div class="card-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="card"><div class="card-icon">🧠</div><div class="card-title">Ch.01 · 背景</div><div class="card-body">为什么选 NVIDIA NIM 平台？GLM-4.7 和 MiniMax M2.1 的能力介绍</div></div>
+    <div class="card"><div class="card-icon">🔑</div><div class="card-title">Ch.02 · 注册获 Key</div><div class="card-body">注册 NVIDIA 账号、获取 API Key 的完整流程</div></div>
+    <div class="card"><div class="card-icon">⚙️</div><div class="card-title">Ch.03 · 配置文件</div><div class="card-body">修改 openclaw.json，接入 NVIDIA provider</div></div>
+    <div class="card"><div class="card-icon">🚀</div><div class="card-title">Ch.04 · 启动验证</div><div class="card-body">重启网关、切换模型、测试联通</div></div>
+    <div class="card"><div class="card-icon">🔀</div><div class="card-title">Ch.05 · 进阶配置</div><div class="card-body">多模型备选、国内直连原生 API 两种方案对比</div></div>
+    <div class="card"><div class="card-icon">🔧</div><div class="card-title">Ch.06 · 排障</div><div class="card-body">常见错误及解决方案速查</div></div>
+  </div>
+</div>
+</div>
+
+<!-- 2 · CH01 BREAK -->
+<div class="slide centered" data-title="Ch.01 背景介绍">
+<div class="slide-inner">
+  <div class="ch-num">01</div>
+  <div class="ch-label">Chapter One</div>
+  <div class="ch-title">为什么是 NVIDIA NIM？</div>
+  <p class="ch-desc">黄仁勋把国产顶流模型免费开放出来了——趁资源没被挤爆，赶紧薅。</p>
+</div>
+</div>
+
+<!-- 3 · WHY NVIDIA -->
+<div class="slide" data-title="NVIDIA NIM 平台介绍">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 01 · 背景介绍</div>
+  <h2 class="slide-title">NVIDIA NIM 平台 & 两大模型</h2>
+  <p class="slide-desc">NVIDIA 通过 NIM（NVIDIA Inference Microservices）平台对外免费提供大模型 API 调用，包括两款刚发布的国产旗舰。</p>
+  <div class="card-grid" style="grid-template-columns:1fr 1fr;">
+    <div class="card" style="border-color:rgba(96,165,250,.4);">
+      <div class="card-icon">🧊</div>
+      <div class="card-title">GLM-4.7 · 智谱 AI</div>
+      <div class="card-body">
+        上下文窗口：<code>128K</code><br>
+        编程能力极强，实测超越多款闭源模型<br>
+        Model ID：<code>z-ai/glm4.7</code>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(124,92,252,.4);">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">MiniMax M2.1</div>
+      <div class="card-body">
+        上下文窗口：<code>128K</code><br>
+        多语言编程能力出色，推理性能优秀<br>
+        Model ID：<code>minimaxai/minimax-m2.1</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">🌏 国内直连的关键</div>
+    NVIDIA NIM 的 API 地址 <code>integrate.api.nvidia.com</code> 在国内可以<strong>直接访问</strong>，无需代理、无需 VPN，这是区别于 Anthropic 和 OpenAI 官方 API 的最大优势。
+  </div>
+
+  <div class="badge-row">
+    <span class="model-badge green">✓ 国内直连</span>
+    <span class="model-badge green">✓ 完全免费</span>
+    <span class="model-badge blue">✓ OpenAI 兼容接口</span>
+    <span class="model-badge purple">✓ 128K 上下文</span>
+  </div>
+</div>
+</div>
+
+<!-- 4 · CH02 BREAK -->
+<div class="slide centered" data-title="Ch.02 注册 & 获取 Key">
+<div class="slide-inner">
+  <div class="ch-num">02</div>
+  <div class="ch-label">Chapter Two</div>
+  <div class="ch-title">注册账号 & 获取 API Key</div>
+  <p class="ch-desc">访问 build.nvidia.com，5 分钟完成注册和 Key 申请。</p>
+</div>
+</div>
+
+<!-- 5 · REGISTER -->
+<div class="slide" data-title="注册步骤详解">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 02 · 注册 & 获取 Key</div>
+  <h2 class="slide-title">四步获取 NVIDIA API Key</h2>
+
+  <div class="workflow-step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <div class="step-title">访问 NVIDIA Build 平台</div>
+      <div class="step-desc">打开 <code>build.nvidia.com</code>，点击右上角「Sign In」→「Create Account」注册账号（支持邮箱注册，无需信用卡）。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <div class="step-title">验证手机号码</div>
+      <div class="step-desc">注册完成后务必验证手机号，否则无法获取 API 调用权限。在手机号码处直接填写 <code>+86</code> 开头的国内号码，点击「Send Code via SMS」接收验证码。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <div class="step-title">创建 API Key</div>
+      <div class="step-desc">验证完成后，点击右上角头像 → 选择「API Keys」→「Generate Key」。密钥格式为 <code>nvapi-xxxxxxxxxxxxxxxxxxxxxxxx</code>，生成后立即复制保存，页面关闭后无法再次查看。</div>
+    </div>
+  </div>
+  <div class="workflow-step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <div class="step-title">确认模型访问权限</div>
+      <div class="step-desc">在平台搜索 <code>glm</code> 或 <code>minimax</code>，进入模型页面点击「View Code」可看到示例代码，确认 API 地址为 <code>https://integrate.api.nvidia.com/v1</code>。</div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-head">💡 提示</div>
+    GLM-4.7 和 MiniMax M2.1 目前可能尚未在官方模型广场完整列出，但 API 实测可正常调用。API Key 申请后即可直接使用这两个模型。
+  </div>
+</div>
+</div>
+
+<!-- 6 · CH03 BREAK -->
+<div class="slide centered" data-title="Ch.03 配置 openclaw.json">
+<div class="slide-inner">
+  <div class="ch-num">03</div>
+  <div class="ch-label">Chapter Three</div>
+  <div class="ch-title">配置 openclaw.json</div>
+  <p class="ch-desc">修改配置文件，将 NVIDIA 作为新的 provider 接入 OpenClaw。</p>
+</div>
+</div>
+
+<!-- 7 · CONFIG FILE -->
+<div class="slide" data-title="配置文件修改">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 03 · 配置 openclaw.json</div>
+  <h2 class="slide-title">找到并修改配置文件</h2>
+  <p class="slide-desc">配置文件位于 <code>~/.openclaw/openclaw.json</code>（旧版为 <code>~/.clawdbot/clawdbot.json</code>）</p>
+
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">找到配置文件</span></div>
+    <div class="terminal-body">
+<span class="comment"># 查找配置文件位置</span><br>
+<span class="prompt">$</span> <span class="cmd">ls ~/.openclaw/</span><br>
+<span class="out">openclaw.json  logs/  cache/</span><br><br>
+<span class="comment"># 用编辑器打开（任选其一）</span><br>
+<span class="prompt">$</span> <span class="cmd">nano ~/.openclaw/openclaw.json</span><br>
+<span class="prompt">$</span> <span class="cmd">code ~/.openclaw/openclaw.json</span>&nbsp;&nbsp;<span class="comment"># VS Code</span><br>
+<span class="prompt">$</span> <span class="cmd">vim ~/.openclaw/openclaw.json</span>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-head">⚠️ 注意版本差异</div>
+    OpenClaw 经历了 Clawdbot → Moltbot → OpenClaw 的更名。新版（2026.1.24+）内置配置向导，可用 <code>openclaw onboard</code> 自动完成配置。旧版需手动编辑 JSON 文件。
+  </div>
+</div>
+</div>
+
+<!-- 8 · JSON CONFIG -->
+<div class="slide" data-title="JSON 配置内容">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 03 · 配置 openclaw.json</div>
+  <h2 class="slide-title">插入 NVIDIA Provider 配置</h2>
+  <p class="slide-desc">在 <code>"providers": {"{}"}</code> 后插入以下内容（GLM-4.7 + MiniMax M2.1 双模型）</p>
+
+  <div class="json-block">
+<span class="jp">"nvidia"</span>: {<br>
+&nbsp;&nbsp;<span class="jk">"baseUrl"</span>: <span class="jv">"https://integrate.api.nvidia.com/v1"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"apiKey"</span>: <span class="jv">"nvapi-你申请到的Key"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"api"</span>: <span class="jv">"openai-completions"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"models"</span>: [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"id"</span>: <span class="jv">"z-ai/glm4.7"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"name"</span>: <span class="jv">"GLM-4.7"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"reasoning"</span>: <span class="jn">false</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"input"</span>: [<span class="jv">"text"</span>],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"cost"</span>: { <span class="jk">"input"</span>: <span class="jn">0</span>, <span class="jk">"output"</span>: <span class="jn">0</span>, <span class="jk">"cacheRead"</span>: <span class="jn">0</span>, <span class="jk">"cacheWrite"</span>: <span class="jn">0</span> },<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"contextWindow"</span>: <span class="jn">128000</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"maxTokens"</span>: <span class="jn">8192</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"id"</span>: <span class="jv">"minimaxai/minimax-m2.1"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"name"</span>: <span class="jv">"MiniMax-M2.1"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"reasoning"</span>: <span class="jn">false</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"input"</span>: [<span class="jv">"text"</span>],<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"cost"</span>: { <span class="jk">"input"</span>: <span class="jn">0</span>, <span class="jk">"output"</span>: <span class="jn">0</span>, <span class="jk">"cacheRead"</span>: <span class="jn">0</span>, <span class="jk">"cacheWrite"</span>: <span class="jn">0</span> },<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"contextWindow"</span>: <span class="jn">128000</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"maxTokens"</span>: <span class="jn">8192</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;]<br>
+}
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">关键字段说明</div>
+    <code>"api": "openai-completions"</code> 指定使用 OpenAI 兼容接口，<code>cost</code> 字段全部填 0 表示免费，避免 OpenClaw 显示错误费用估算。
+  </div>
+</div>
+</div>
+
+<!-- 9 · CH04 BREAK -->
+<div class="slide centered" data-title="Ch.04 启动验证">
+<div class="slide-inner">
+  <div class="ch-num">04</div>
+  <div class="ch-label">Chapter Four</div>
+  <div class="ch-title">启动 & 验证</div>
+  <p class="ch-desc">重启网关，切换到 NVIDIA 模型，验证配置是否生效。</p>
+</div>
+</div>
+
+<!-- 10 · LAUNCH -->
+<div class="slide" data-title="重启网关与验证">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 04 · 启动验证</div>
+  <h2 class="slide-title">重启网关 & 切换模型</h2>
+
+  <div class="terminal">
+    <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">重启 & 测试流程</span></div>
+    <div class="terminal-body">
+<span class="comment"># 第一步：强制重启网关（使配置生效）</span><br>
+<span class="prompt">$</span> <span class="cmd">openclaw gateway --force</span><br>
+<span class="success">✓ Gateway restarted successfully</span><br><br>
+<span class="comment"># 第二步：打开 TUI 交互界面</span><br>
+<span class="prompt">$</span> <span class="cmd">openclaw tui</span><br><br>
+<span class="comment"># 第三步：在 TUI 内切换到 GLM-4.7</span><br>
+<span class="out">/model nvidia/z-ai/glm4.7</span><br><br>
+<span class="comment"># 或切换到 MiniMax M2.1</span><br>
+<span class="out">/model nvidia/minimaxai/minimax-m2.1</span><br><br>
+<span class="comment"># 验证：问一句确认模型身份</span><br>
+<span class="out">你好，你是什么模型？</span><br>
+<span class="success">我是 GLM-4.7，由智谱 AI 开发的大语言模型...</span>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="callout">
+      <div class="callout-head">验证 API 连通性（可选）</div>
+      <code style="font-size:10px;">curl https://integrate.api.nvidia.com/v1/models \<br>&nbsp;&nbsp;-H "Authorization: Bearer nvapi-xxx"</code>
+    </div>
+    <div class="callout tip">
+      <div class="callout-head">💡 命令行切换模型</div>
+      也可用命令行切换：<br>
+      <code>openclaw models set nvidia/z-ai/glm4.7</code>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 11 · CH05 BREAK -->
+<div class="slide centered" data-title="Ch.05 进阶配置方案">
+<div class="slide-inner">
+  <div class="ch-num">05</div>
+  <div class="ch-label">Chapter Five</div>
+  <div class="ch-title">进阶配置方案</div>
+  <p class="ch-desc">两种方案对比：NVIDIA 中转 vs 国内直连原生 API，以及多模型备选配置。</p>
+</div>
+</div>
+
+<!-- 12 · TWO APPROACHES -->
+<div class="slide" data-title="两种接入方案对比">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 05 · 进阶配置</div>
+  <h2 class="slide-title">方案 A vs 方案 B</h2>
+  <p class="slide-desc">根据需求选择最适合的接入方式。</p>
+
+  <div class="two-col">
+    <div class="card" style="border-color:rgba(0,212,170,.4);">
+      <div class="card-icon">🔗</div>
+      <div class="card-title">方案 A · NVIDIA NIM 中转（推荐入门）</div>
+      <div class="card-body">
+        ✅ 一个 Key 调用多个模型<br>
+        ✅ OpenAI 兼容，配置简单<br>
+        ✅ 完全免费<br>
+        ⚠️ 模型可能有隐性限流<br>
+        接口：<code style="font-size:10px;">integrate.api.nvidia.com/v1</code>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(124,92,252,.4);">
+      <div class="card-icon">🇨🇳</div>
+      <div class="card-title">方案 B · 国内直连原生 API（推荐稳定）</div>
+      <div class="card-body">
+        ✅ 智谱/MiniMax 官方接口，更稳定<br>
+        ✅ Anthropic 兼容格式，功能更完整<br>
+        ✅ 支持思考模式（reasoning）<br>
+        ⚠️ 需分别注册两家平台获取 Key<br>
+        GLM：<code style="font-size:10px;">open.bigmodel.cn/api/anthropic</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-head">💡 方案 B 的 GLM-4.7 配置片段</div>
+    将 <code>"api"</code> 改为 <code>"anthropic-messages"</code>，<code>"baseUrl"</code> 改为 <code>"https://open.bigmodel.cn/api/anthropic"</code>，<code>"reasoning": true</code> 开启思维链模式。
+  </div>
+</div>
+</div>
+
+<!-- 13 · MULTI-MODEL -->
+<div class="slide" data-title="多模型备选配置">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 05 · 进阶配置</div>
+  <h2 class="slide-title">多模型备选 & 故障转移</h2>
+  <p class="slide-desc">配置主模型 + 备选链，让 OpenClaw 在模型不可用时自动切换。</p>
+
+  <div class="json-block">
+<span class="jc">// 在 agents.defaults 中配置主备模型</span><br>
+<span class="jp">"agents"</span>: {<br>
+&nbsp;&nbsp;<span class="jk">"defaults"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"model"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"primary"</span>: <span class="jv">"nvidia/z-ai/glm4.7"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"fallback"</span>: <span class="jv">"nvidia/minimaxai/minimax-m2.1"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;}<br>
+}<br>
+<br>
+<span class="jc">// 也可以配置更多备选（适合生产环境）</span><br>
+<span class="jp">"model"</span>: {<br>
+&nbsp;&nbsp;<span class="jk">"primary"</span>: <span class="jv">"nvidia/z-ai/glm4.7"</span>,<br>
+&nbsp;&nbsp;<span class="jk">"fallbacks"</span>: [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="jv">"nvidia/minimaxai/minimax-m2.1"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="jv">"anthropic/claude-sonnet-4-6"</span>&nbsp;&nbsp;<span class="jc">// 付费兜底</span><br>
+&nbsp;&nbsp;]<br>
+}
+  </div>
+
+  <div class="callout">
+    <div class="callout-head">限流自动退避机制</div>
+    当某模型触发频率限制时，OpenClaw 会自动标记冷却期并切换到备选模型，使用指数退避策略（计费类失败：初始 5 小时，翻倍递增，上限 24 小时）。
+  </div>
+</div>
+</div>
+
+<!-- 14 · CH06 BREAK -->
+<div class="slide centered" data-title="Ch.06 故障排查">
+<div class="slide-inner">
+  <div class="ch-num">06</div>
+  <div class="ch-label">Chapter Six</div>
+  <div class="ch-title">常见问题排查</div>
+  <p class="ch-desc">遇到问题不慌，90% 的错误都在这里。</p>
+</div>
+</div>
+
+<!-- 15 · TROUBLESHOOT -->
+<div class="slide" data-title="常见错误速查">
+<div class="slide-inner">
+  <div class="chapter-num">Chapter 06 · 故障排查</div>
+  <h2 class="slide-title">错误速查 & 解决方案</h2>
+  <table class="key-table">
+    <thead><tr><th>错误现象</th><th>原因</th><th>解决方案</th></tr></thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--red);">HTTP 401 Unauthorized</td>
+        <td style="color:var(--text-dim);">API Key 填写错误或未生效</td>
+        <td>确认 Key 格式 <code>nvapi-xxx</code>，重启网关 <code>openclaw gateway --force</code></td>
+      </tr>
+      <tr>
+        <td style="color:var(--red);">模型不存在 / 404</td>
+        <td style="color:var(--text-dim);">model id 填写错误</td>
+        <td>GLM：<code>z-ai/glm4.7</code>，MiniMax：<code>minimaxai/minimax-m2.1</code>，注意前缀</td>
+      </tr>
+      <tr>
+        <td style="color:var(--red);">配置修改无效</td>
+        <td style="color:var(--text-dim);">网关未重启</td>
+        <td>执行 <code>openclaw gateway --force</code> 强制重启</td>
+      </tr>
+      <tr>
+        <td style="color:var(--red);">速率限制 / 429</td>
+        <td style="color:var(--text-dim);">免费配额耗尽或请求过频</td>
+        <td>配置备选模型，或等待冷却后重试</td>
+      </tr>
+      <tr>
+        <td style="color:var(--red);">JSON 解析错误</td>
+        <td style="color:var(--text-dim);">配置文件格式不合法</td>
+        <td>用 <code>cat openclaw.json | python3 -m json.tool</code> 验证 JSON 格式</td>
+      </tr>
+      <tr>
+        <td style="color:var(--red);">接口格式错误</td>
+        <td style="color:var(--text-dim);">api 类型填错（NVIDIA 是 OpenAI 格式）</td>
+        <td>确保 <code>"api": "openai-completions"</code>，不要填 anthropic-messages</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-head">⚠️ 踩坑提醒</div>
+    NVIDIA NIM 接口是 <strong>OpenAI 兼容格式</strong>，不是 Anthropic 格式。如果你混用了两种格式的配置，会导致认证通过但响应解析失败。方案 B 的智谱/MiniMax 官方接口才支持 Anthropic 格式。
+  </div>
+</div>
+</div>
+
+<!-- 16 · SUMMARY -->
+<div class="slide" data-title="配置清单 & 快速参考">
+<div class="slide-inner">
+  <div class="chapter-num">Quick Reference</div>
+  <h2 class="slide-title">配置要素一览表</h2>
+  <p class="slide-desc">复制粘贴时核对以下关键字段，避免低级错误。</p>
+
+  <table class="key-table">
+    <thead><tr><th>配置项</th><th>GLM-4.7</th><th>MiniMax M2.1</th></tr></thead>
+    <tbody>
+      <tr><td>Provider 名称</td><td><span class="kbd">nvidia</span></td><td><span class="kbd">nvidia</span></td></tr>
+      <tr><td>baseUrl</td><td colspan="2" style="color:var(--accent);font-family:var(--mono);font-size:11px;">https://integrate.api.nvidia.com/v1</td></tr>
+      <tr><td>model id</td><td style="font-family:var(--mono);font-size:11px;color:var(--blue);">z-ai/glm4.7</td><td style="font-family:var(--mono);font-size:11px;color:var(--accent3);">minimaxai/minimax-m2.1</td></tr>
+      <tr><td>api 类型</td><td colspan="2" style="font-family:var(--mono);font-size:11px;color:var(--green);">openai-completions</td></tr>
+      <tr><td>contextWindow</td><td colspan="2" style="color:var(--yellow-display);">128000</td></tr>
+      <tr><td>maxTokens</td><td colspan="2" style="color:var(--yellow-display);">8192</td></tr>
+      <tr><td>cost（全部）</td><td colspan="2" style="color:var(--green);">0（免费）</td></tr>
+      <tr><td>API Key 格式</td><td colspan="2" style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">nvapi-xxxxxxxxxxxxxxxxxxxxxxxx</td></tr>
+    </tbody>
+  </table>
+
+  <div class="badge-row">
+    <span class="model-badge green">✓ 国内 <code>integrate.api.nvidia.com</code> 直连</span>
+    <span class="model-badge blue">✓ 每次重启后配置生效</span>
+    <span class="model-badge purple">✓ cost 全写 0 避免误算费用</span>
+  </div>
+</div>
+</div>
+
+<!-- 17 · END -->
+<div class="slide centered" data-title="结束页">
+<div class="slide-inner">
+  <div style="font-size:56px;margin-bottom:28px;">🚀</div>
+  <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:14px;">OpenClaw × NVIDIA 免费 API</div>
+  <div style="color:var(--text-dim);font-size:15px;line-height:1.9;max-width:520px;margin-bottom:16px;">
+    趁资源没被挤爆，赶紧试试 GLM-4.7 和 MiniMax M2.1。<br>
+    零成本、零代理，国产顶级大模型触手可及。
+  </div>
+  <div style="color:var(--text-dim);font-size:13px;margin-bottom:32px;">
+    NVIDIA 把这些模型开放出来，既是给开发者发福利，<br>也是在推广自家的 NIM 生态——双赢，何乐而不为？
+  </div>
+  <div class="footer-links">
+    <a href="https://build.nvidia.com" target="_blank">NVIDIA Build ↗</a>
+    <a href="https://blog.csdn.net/cuiqingwei/article/details/157579351" target="_blank">原文教程 ↗</a>
+    <a href="https://open.bigmodel.cn" target="_blank">智谱开放平台 ↗</a>
+    <a href="https://api.minimaxi.com" target="_blank">MiniMax API ↗</a>
+  </div>
+  <div style="margin-top:40px;font-family:var(--mono);font-size:10px;color:var(--border);">
+    基于 cuiqingwei CSDN 博客文章整理 · 请以最新官方文档为准
+  </div>
+</div>
+</div>
+
+</div><!-- /#deck -->
+
+<script>
+// ══ THEME ══
+let theme = localStorage.getItem('slide-theme') || 'dark';
+function applyTheme(t, animate) {
+  if (!animate) document.documentElement.classList.add('no-transition');
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'DARK' : 'LIGHT';
+  localStorage.setItem('slide-theme', t);
+  if (!animate) { document.documentElement.getBoundingClientRect(); document.documentElement.classList.remove('no-transition'); }
+}
+function toggleTheme() {
+  theme = theme === 'dark' ? 'light' : 'dark';
+  applyTheme(theme, true);
+  showToast(theme === 'light' ? '☀️ 亮色模式' : '🌙 暗色模式');
+}
+applyTheme(theme, false);
+
+// ══ ENGINE ══
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0, busy = false;
+
+const menu = document.getElementById('slide-menu');
+slides.forEach((s, i) => {
+  const item = document.createElement('div');
+  item.className = 'menu-item';
+  item.innerHTML = `<span class="menu-num">${String(i+1).padStart(2,'0')}</span>${s.dataset.title || 'Slide '+(i+1)}`;
+  item.addEventListener('click', () => { goTo(i); closeMenu(); });
+  menu.appendChild(item);
+});
+document.getElementById('total').textContent = slides.length;
+
+function updateUI() {
+  document.getElementById('cur').textContent = current + 1;
+  const pct = slides.length > 1 ? (current / (slides.length - 1)) * 100 : 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('btn-prev').disabled  = current === 0;
+  document.getElementById('btn-next').disabled  = current === slides.length - 1;
+  document.getElementById('btn-first').disabled = current === 0;
+  document.getElementById('btn-last').disabled  = current === slides.length - 1;
+  document.querySelectorAll('.menu-item').forEach((el, i) => el.classList.toggle('active', i === current));
+}
+
+function goTo(n) {
+  if (busy || n === current || n < 0 || n >= slides.length) return;
+  busy = true;
+  const out = slides[current], inn = slides[n];
+  out.classList.add('exit-up');
+  inn.classList.add('enter-from-below');
+  inn.getBoundingClientRect();
+  out.classList.remove('active');
+  inn.classList.remove('enter-from-below');
+  inn.classList.add('active');
+  setTimeout(() => {
+    out.classList.remove('exit-up');
+    busy = false;
+    const inner = inn.querySelector('.slide-inner');
+    if (inner) inner.scrollTop = 0;
+  }, 420);
+  current = n;
+  updateUI();
+}
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+// ══ MENU ══
+let menuOpen = false;
+function toggleMenu() { menuOpen = !menuOpen; document.getElementById('slide-menu').classList.toggle('open', menuOpen); }
+function closeMenu()   { menuOpen = false; document.getElementById('slide-menu').classList.remove('open'); }
+document.addEventListener('click', e => { if (menuOpen && !e.target.closest('#slide-menu') && !e.target.closest('#top-controls')) closeMenu(); });
+
+// ══ TOAST ══
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ══ KEYBOARD ══
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const ai = slides[current]?.querySelector('.slide-inner');
+  const scrollable = ai && ai.scrollHeight > ai.clientHeight + 4;
+  const atBottom = scrollable && (ai.scrollTop + ai.clientHeight >= ai.scrollHeight - 6);
+  const atTop    = scrollable && (ai.scrollTop <= 4);
+  switch (e.key) {
+    case 'ArrowRight': case ' ': e.preventDefault(); next(); break;
+    case 'ArrowLeft':  e.preventDefault(); prev(); break;
+    case 'ArrowDown':  if (!scrollable || atBottom) { e.preventDefault(); next(); } break;
+    case 'ArrowUp':    if (!scrollable || atTop)    { e.preventDefault(); prev(); } break;
+    case 'PageDown':   e.preventDefault(); next(); break;
+    case 'PageUp':     e.preventDefault(); prev(); break;
+    case 'Home': e.preventDefault(); goTo(0); showToast('⇤ 第一页'); break;
+    case 'End':  e.preventDefault(); goTo(slides.length-1); showToast('⇥ 最后一页'); break;
+    case 'g': case 'G': {
+      e.preventDefault();
+      const raw = prompt(`跳转到第几页？（1–${slides.length}）`);
+      if (!raw) break;
+      const n = parseInt(raw);
+      if (!isNaN(n) && n >= 1 && n <= slides.length) { goTo(n-1); showToast(`→ 第 ${n} 页`); }
+      break;
+    }
+    case 'm': case 'M': e.preventDefault(); toggleMenu(); break;
+    case 'Escape': if (menuOpen) closeMenu(); break;
+    case 't': case 'T': e.preventDefault(); toggleTheme(); break;
+    case 'f': case 'F':
+      e.preventDefault();
+      if (!document.fullscreenElement) { document.documentElement.requestFullscreen?.().catch(()=>{}); showToast('⛶ 全屏'); }
+      else { document.exitFullscreen?.(); showToast('退出全屏'); }
+      break;
+  }
+});
+
+// ══ TOUCH ══
+let tx=0,ty=0;
+document.addEventListener('touchstart', e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.addEventListener('touchend', e=>{
+  const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+  if (Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50) dx<0?next():prev();
+},{passive:true});
+
+// ══ INIT ══
+slides[0].classList.add('active');
+updateUI();
+</script>
+</body>
+</html>
