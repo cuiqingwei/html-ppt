@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本地 LLM 部署培训</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai:wght@300;400;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Token 系统 ── */
+:root {
+  --accent: #00d4aa;
+  --accent2: #ff6b35;
+  --accent3: #7c5cfc;
+  --green: #4ade80;
+  --red: #f87171;
+  --blue: #60a5fa;
+  --pink: #f472b6;
+}
+[data-theme="dark"] {
+  --bg: #0d0f14;
+  --bg2: #13161d;
+  --bg3: #1a1e28;
+  --panel: #1e2330;
+  --border: #2a3045;
+  --text: #e2e8f4;
+  --text-dim: #8892a4;
+  --text-bright: #ffffff;
+  --term-bg: #0a0c10;
+  --term-comment: #3d4f66;
+  --term-out: #4a6278;
+  --grid-color: rgba(0,212,170,.022);
+  --nav-bg: rgba(13,15,20,.88);
+  --kbd-bg: #1a1e28;
+  --yellow-display: #f0c040;
+}
+[data-theme="light"] {
+  --bg: #f4f6fb;
+  --bg2: #eaecf4;
+  --bg3: #dde1ee;
+  --panel: #ffffff;
+  --border: #c8cfe0;
+  --text: #2a3050;
+  --text-dim: #6b7599;
+  --text-bright: #0d1020;
+  --term-bg: #1a1d28;
+  --term-comment: #5a7a96;
+  --term-out: #7a98b0;
+  --grid-color: rgba(0,140,110,.04);
+  --nav-bg: rgba(244,246,251,.92);
+  --kbd-bg: #eaecf4;
+  --yellow-display: #b07800;
+}
+.no-transition * { transition: none !important; }
+
+/* ── 全局 ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg); color: var(--text);
+  font-family: 'SiteFont', 'LXGW WenKai', serif;
+  transition: background .35s ease, color .35s ease, border-color .35s ease;
+}
+
+/* ── 背景网格 ── */
+.bg-grid {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ── 进度条 ── */
+#progress {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 100;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  box-shadow: 0 0 8px var(--accent);
+  transition: width .3s ease;
+}
+
+/* ── 右上角控件 ── */
+#top-controls {
+  position: fixed; top: 18px; right: 22px; z-index: 200;
+  display: flex; align-items: center; gap: 8px;
+}
+#theme-label {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 10px; color: var(--text-dim); letter-spacing: .05em;
+}
+#theme-track {
+  width: 40px; height: 22px; border-radius: 11px;
+  background: var(--bg3); border: 1px solid var(--border);
+  position: relative; cursor: pointer;
+  transition: background .3s;
+}
+#theme-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text-dim); transition: transform .3s, background .3s;
+}
+[data-theme="light"] #theme-track { background: var(--accent); }
+[data-theme="light"] #theme-track::after { transform: translateX(18px); background: #fff; }
+#menu-btn {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 12px;
+  padding: 4px 10px; border-radius: 6px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+#menu-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── 目录侧边栏 ── */
+#sidebar {
+  position: fixed; right: 0; top: 0; width: 300px; height: 100%;
+  background: var(--panel); border-left: 1px solid var(--border);
+  z-index: 300; transform: translateX(100%);
+  transition: transform .3s ease;
+  overflow-y: auto; padding: 60px 0 20px;
+}
+#sidebar.open { transform: translateX(0); }
+#sidebar-title {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 11px; color: var(--accent); letter-spacing: .1em;
+  padding: 0 20px 12px; border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.sidebar-item {
+  display: block; padding: 9px 20px; font-size: 13px;
+  color: var(--text-dim); cursor: pointer;
+  transition: color .2s, background .2s;
+  border-left: 3px solid transparent;
+}
+.sidebar-item:hover { color: var(--text); background: var(--bg2); }
+.sidebar-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg2); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; top: 22px; left: 50%; transform: translate(-50%, -70px);
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 18px;
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 13px; color: var(--text);
+  z-index: 400; transition: transform .3s cubic-bezier(.4,0,.2,1);
+  white-space: nowrap;
+}
+#toast.show { transform: translate(-50%, 0); }
+
+/* ── 底部导航 ── */
+#nav {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  background: var(--nav-bg); border: 1px solid var(--border);
+  border-radius: 12px; padding: 6px 10px;
+  backdrop-filter: blur(14px); z-index: 100;
+}
+.nav-btn {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 16px; padding: 4px 8px; cursor: pointer;
+  border-radius: 6px; transition: color .2s, background .2s;
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+}
+.nav-btn:hover:not(:disabled) { color: var(--accent); background: var(--bg3); }
+.nav-btn:disabled { opacity: .3; cursor: default; }
+#page-indicator {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 12px;
+  color: var(--text-dim); padding: 0 8px; min-width: 60px; text-align: center;
+}
+
+/* ── 快捷键提示 ── */
+#shortcuts {
+  position: fixed; bottom: 28px; right: 22px;
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 9px;
+  color: var(--text-dim); line-height: 1.7;
+  pointer-events: none; opacity: .6;
+}
+
+/* ── 幻灯片引擎 ── */
+#slides-container { position: fixed; inset: 0; z-index: 1; }
+.slide {
+  position: absolute; inset: 0;
+  opacity: 0; pointer-events: none;
+  transform: translateY(36px);
+  transition: opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);
+}
+.slide.active { opacity: 1; pointer-events: all; transform: translateY(0); }
+.slide.exit-up { opacity: 0; transform: translateY(-36px); transition: opacity .3s ease, transform .3s ease; }
+.slide.enter-from-below { opacity: 0; transform: translateY(56px); transition: none; }
+
+.slide-inner {
+  width: 100%; height: 100%;
+  padding: 64px 80px 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.slide-inner::-webkit-scrollbar { width: 4px; }
+.slide-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* centered slides */
+.slide.centered .slide-inner {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; overflow: visible;
+}
+
+/* ── 封面 ── */
+.cover-tag {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 11px; letter-spacing: .18em; color: var(--accent);
+  margin-bottom: 28px; text-transform: uppercase;
+}
+.cover-title {
+  font-size: clamp(36px, 5vw, 60px); font-weight: 700;
+  color: var(--text-bright); line-height: 1.2; margin-bottom: 16px;
+}
+.cover-accent { color: var(--accent); }
+.cover-sub {
+  font-size: 18px; color: var(--text-dim); margin-bottom: 48px; max-width: 600px;
+}
+.cover-meta {
+  display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+}
+.cover-meta-item {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 12px;
+  color: var(--text-dim); display: flex; flex-direction: column; gap: 4px; align-items: center;
+}
+.cover-meta-val { color: var(--accent); font-size: 14px; }
+
+/* ── 大纲 ── */
+.outline-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  margin-top: 24px; grid-auto-rows: 1fr;
+}
+@media (max-width: 900px) { .outline-grid { grid-template-columns: repeat(2,1fr); } }
+
+/* ── 章节过渡 ── */
+.chapter-num-big {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: clamp(100px, 18vw, 180px); font-weight: 700;
+  color: transparent; -webkit-text-stroke: 2px var(--border);
+  line-height: 1; margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-stroke: 0px;
+  opacity: .15;
+}
+.chapter-title-big { font-size: clamp(28px, 4vw, 48px); font-weight: 700; color: var(--text-bright); margin-bottom: 12px; }
+.chapter-desc { font-size: 16px; color: var(--text-dim); max-width: 500px; }
+
+/* ── 内容页标签 ── */
+.chapter-num-label {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 11px;
+  color: var(--accent); letter-spacing: .15em; margin-bottom: 10px;
+  display: inline-block;
+}
+.slide-title { font-size: clamp(22px, 3vw, 36px); font-weight: 700; color: var(--text-bright); margin-bottom: 10px; line-height: 1.3; }
+.slide-desc { font-size: 15px; color: var(--text-dim); margin-bottom: 28px; }
+
+/* ── 卡片 ── */
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 20px;
+  position: relative; overflow: hidden;
+  transition: transform .2s, border-color .2s;
+  cursor: default;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent); transform: scaleX(0); transform-origin: left;
+  transition: transform .2s;
+}
+.card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.card:hover::before { transform: scaleX(1); }
+.card-icon { font-size: 28px; margin-bottom: 10px; }
+.card-title { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; }
+.card-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+.card-num {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 10px;
+  color: var(--accent); margin-bottom: 8px; letter-spacing: .1em;
+}
+
+/* ── 终端块 ── */
+.terminal {
+  background: var(--term-bg); border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); margin: 16px 0;
+}
+.term-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px 8px; border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.term-dot { width: 12px; height: 12px; border-radius: 50%; }
+.term-dot-r { background: #ff5f57; }
+.term-dot-y { background: #febc2e; }
+.term-dot-g { background: #28c840; }
+.term-label {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 11px;
+  color: var(--term-comment); margin-left: 6px;
+}
+.term-body {
+  padding: 14px 18px; font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 13px; line-height: 1.8; overflow-x: auto;
+  white-space: pre;
+}
+.t-prompt { color: var(--accent); }
+.t-cmd { color: var(--text); }
+.t-kw { color: var(--accent3); }
+.t-str { color: var(--green); }
+.t-flag { color: var(--pink); }
+.t-comment { color: var(--term-comment); }
+.t-out { color: var(--term-out); }
+.t-success { color: var(--green); }
+.t-highlight { color: var(--yellow-display); }
+.t-warn { color: var(--accent2); }
+.t-blue { color: var(--blue); }
+
+/* ── Callout ── */
+.callout {
+  border-left: 3px solid var(--accent); background: rgba(0,212,170,.07);
+  border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 12px 0;
+  font-size: 14px; line-height: 1.7; color: var(--text);
+}
+.callout.warn { border-left-color: var(--accent2); background: rgba(255,107,53,.07); }
+.callout.tip { border-left-color: var(--accent3); background: rgba(124,92,252,.07); }
+.callout-title {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 11px;
+  letter-spacing: .1em; margin-bottom: 6px;
+}
+.callout .callout-title { color: var(--accent); }
+.callout.warn .callout-title { color: var(--accent2); }
+.callout.tip .callout-title { color: var(--accent3); }
+
+/* ── 标签 ── */
+.tag {
+  display: inline-block; font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 11px; padding: 3px 9px; border-radius: 4px;
+  margin: 2px 3px;
+}
+.tag-green { background: rgba(74,222,128,.15); color: var(--green); }
+.tag-blue { background: rgba(96,165,250,.15); color: var(--blue); }
+.tag-purple { background: rgba(124,92,252,.15); color: var(--accent3); }
+.tag-orange { background: rgba(255,107,53,.15); color: var(--accent2); }
+.tag-teal { background: rgba(0,212,170,.15); color: var(--accent); }
+
+/* ── kbd ── */
+.kbd {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 12px;
+  background: var(--kbd-bg); color: var(--yellow-display);
+  border: 1px solid var(--border); border-bottom: 3px solid var(--border);
+  border-radius: 4px; padding: 2px 7px;
+}
+
+/* ── 表格 ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0; }
+.data-table th {
+  text-align: left; padding: 10px 14px;
+  border-bottom: 2px solid var(--accent); color: var(--accent);
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 11px;
+  letter-spacing: .08em; font-weight: 600;
+}
+.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+.data-table tr:hover td { background: var(--bg3); }
+.data-table code { background: var(--bg3); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 11px; }
+
+/* ── 工作流 ── */
+.workflow { margin: 16px 0; }
+.workflow-step { display: flex; gap: 16px; margin-bottom: 8px; position: relative; }
+.workflow-step:not(:last-child)::after {
+  content: ''; position: absolute; left: 15px; top: 32px;
+  width: 2px; height: calc(100% - 12px);
+  background: linear-gradient(var(--border), transparent);
+}
+.wf-num {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bg3); border: 2px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 13px;
+  color: var(--accent); font-weight: 600;
+}
+.wf-content { padding-top: 4px; }
+.wf-title { font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
+.wf-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+/* ── 两列 ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+/* equal-height card rows */
+.card-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; align-items: stretch; margin-bottom: 16px; }
+.card-row .card, .two-col > .card { height: 100%; }
+
+/* ── 内联代码 ── */
+code { background: var(--bg3); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: .88em; }
+
+/* ── 结束页 ── */
+.end-icon { font-size: 64px; margin-bottom: 24px; }
+.end-title { font-size: 42px; font-weight: 700; color: var(--text-bright); margin-bottom: 12px; }
+.end-sub { font-size: 18px; color: var(--text-dim); margin-bottom: 36px; }
+.btn-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 13px;
+  padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); cursor: pointer;
+  text-decoration: none; display: inline-block;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.btn:hover { color: var(--accent); border-color: var(--accent); background: var(--bg2); }
+.btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+.btn.primary:hover { opacity: .85; }
+
+/* ── 对比列 ── */
+.compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 16px 0; align-items: stretch; }
+.compare-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; }
+.compare-card.recommended { border-color: var(--accent); }
+.compare-card h4 { font-size: 14px; color: var(--text-bright); margin-bottom: 8px; }
+.compare-card .cc-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; }
+.compare-card ul { list-style: none; }
+.compare-card ul li { font-size: 12px; color: var(--text-dim); padding: 3px 0; }
+.compare-card ul li::before { content: '✓ '; color: var(--green); }
+.compare-card ul li.con::before { content: '✗ '; color: var(--red); }
+
+/* ── GPU 规格条 ── */
+.spec-bar { margin: 6px 0; }
+.spec-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.spec-bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.spec-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent3)); transition: width .6s ease; }
+
+/* 模型名颜色徽章 */
+.model-tag {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace; font-size: 11px;
+  padding: 2px 8px; border-radius: 4px; margin: 2px;
+  display: inline-block;
+}
+
+
+/* ════════════════════════════════════════════
+   双字体系统：Fira Code（英文/符号） + LXGW WenKai（中文）
+   通过 unicode-range 精确切割，无需 fallback 猜测
+   ════════════════════════════════════════════ */
+
+/* Fira Code 负责：ASCII 可见字符、拉丁扩展、希腊、标点、数学符号等 */
+@font-face {
+  font-family: 'SiteFontMono';
+  src: local('Fira Code');
+  font-weight: 100 900;
+  unicode-range:
+    U+0020-007E,
+    U+00A0-02FF,
+    U+0300-036F,
+    U+0370-03FF,
+    U+0400-04FF,
+    U+2000-206F,
+    U+2070-209F,
+    U+20A0-20CF,
+    U+2100-214F,
+    U+2150-218F,
+    U+2190-21FF,
+    U+2200-22FF,
+    U+2300-23FF,
+    U+2400-243F,
+    U+25A0-25FF,
+    U+2600-26FF,
+    U+FB00-FB06,
+    U+FE70-FEFF;
+}
+
+/* LXGW WenKai 负责：全部 CJK 汉字、部首、假名、全角字符等 */
+@font-face {
+  font-family: 'SiteFontMono';
+  src: local('LXGW WenKai');
+  font-weight: 100 900;
+  unicode-range:
+    U+2E80-2EFF,
+    U+2F00-2FDF,
+    U+3000-303F,
+    U+3040-309F,
+    U+30A0-30FF,
+    U+3100-312F,
+    U+3130-318F,
+    U+3190-31EF,
+    U+31F0-31FF,
+    U+3200-33FF,
+    U+3400-4DBF,
+    U+4E00-9FFF,
+    U+A000-A4CF,
+    U+A960-A97F,
+    U+AC00-D7FF,
+    U+F900-FAFF,
+    U+FE10-FE6F,
+    U+FF00-FFEF,
+    U+20000-2A6DF,
+    U+2A700-2CEAF;
+}
+
+/* Fira Code 负责正文英文/符号 */
+@font-face {
+  font-family: 'SiteFont';
+  src: local('Fira Code');
+  font-weight: 100 900;
+  unicode-range:
+    U+0020-007E,
+    U+00A0-02FF,
+    U+0300-036F,
+    U+0370-03FF,
+    U+2000-206F,
+    U+2070-209F,
+    U+20A0-22FF,
+    U+2300-23FF,
+    U+25A0-26FF,
+    U+FB00-FB06;
+}
+
+/* LXGW WenKai 负责正文中文 */
+@font-face {
+  font-family: 'SiteFont';
+  src: local('LXGW WenKai');
+  font-weight: 100 900;
+  unicode-range:
+    U+2E80-2EFF,
+    U+2F00-2FDF,
+    U+3000-303F,
+    U+3040-30FF,
+    U+3100-318F,
+    U+3190-31EF,
+    U+31F0-33FF,
+    U+3400-4DBF,
+    U+4E00-9FFF,
+    U+A000-A4CF,
+    U+F900-FAFF,
+    U+FE10-FE6F,
+    U+FF00-FFEF,
+    U+20000-2CEAF;
+}
+
+/* ── 全局应用：所有元素统一使用双字体系统 ── */
+*, *::before, *::after {
+  font-family: 'SiteFont', 'LXGW WenKai', 'Fira Code', sans-serif;
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div id="progress"></div>
+
+<!-- 右上角控件 -->
+<div id="top-controls">
+  <span id="theme-label">DARK</span>
+  <div id="theme-track" onclick="toggleTheme()"></div>
+  <button id="menu-btn" onclick="toggleSidebar()">☰ 目录</button>
+</div>
+
+<!-- 目录侧边栏 -->
+<div id="sidebar">
+  <div id="sidebar-title">CONTENTS</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- 快捷键提示 -->
+<div id="shortcuts">
+  → / Space 下一页<br>
+  ← 上一页<br>
+  G 跳转 · M 目录<br>
+  T 亮暗切换 · F 全屏
+</div>
+
+<!-- 底部导航 -->
+<div id="nav">
+  <button class="nav-btn" id="btn-first" onclick="goTo(0)" title="首页">⏮</button>
+  <button class="nav-btn" id="btn-prev" onclick="prev()">‹</button>
+  <span id="page-indicator">1 / 1</span>
+  <button class="nav-btn" id="btn-next" onclick="next()">›</button>
+  <button class="nav-btn" id="btn-last" onclick="goTo(slides.length-1)" title="末页">⏭</button>
+</div>
+
+<!-- ═══════════════════ SLIDES ═══════════════════ -->
+<div id="slides-container">
+
+<!-- ── S0 封面 ── -->
+<div class="slide centered active" data-title="封面">
+  <div class="slide-inner">
+    <div class="cover-tag">Local LLM Deployment · 2025</div>
+    <div class="cover-title">本地 <span class="cover-accent">大模型</span><br>部署实战培训</div>
+    <div class="cover-sub">从专业名词到生产级部署，系统掌握消费级 GPU 场景下的 LLM 全链路</div>
+    <div class="cover-meta">
+      <div class="cover-meta-item"><span>难度</span><span class="cover-meta-val">入门 → 进阶</span></div>
+      <div class="cover-meta-item"><span>模块</span><span class="cover-meta-val">6 章节</span></div>
+      <div class="cover-meta-item"><span>平台</span><span class="cover-meta-val">消费级 GPU / PC</span></div>
+      <div class="cover-meta-item"><span>形式</span><span class="cover-meta-val">讲授 + 实操</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S1 大纲 ── -->
+<div class="slide" data-title="课程大纲">
+  <div class="slide-inner">
+    <div class="chapter-num-label">OVERVIEW</div>
+    <div class="slide-title">课程大纲</div>
+    <div class="slide-desc">六大模块，从认知基础到实战进阶，循序渐进</div>
+    <div class="outline-grid">
+      <div class="card">
+        <div class="card-num">MODULE 01</div>
+        <div class="card-icon">📖</div>
+        <div class="card-title">专业名词与基础概念</div>
+        <div class="card-desc">Token、量化、VRAM、模型格式——扫清认知障碍</div>
+      </div>
+      <div class="card">
+        <div class="card-num">MODULE 02</div>
+        <div class="card-icon">🏆</div>
+        <div class="card-title">主流模型对比与排名</div>
+        <div class="card-desc">Llama、Qwen、DeepSeek——开源生态全景扫描</div>
+      </div>
+      <div class="card">
+        <div class="card-num">MODULE 03</div>
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">硬件配置选择指南</div>
+        <div class="card-desc">GPU 选购、多卡方案、各预算段推荐配置</div>
+      </div>
+      <div class="card">
+        <div class="card-num">MODULE 04</div>
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">主流部署框架详解</div>
+        <div class="card-desc">Ollama / llama.cpp / vLLM——框架选型矩阵</div>
+      </div>
+      <div class="card">
+        <div class="card-num">MODULE 05</div>
+        <div class="card-icon">🚀</div>
+        <div class="card-title">部署实战：从安装到对话</div>
+        <div class="card-desc">环境搭建、模型下载、API 对接、界面接入</div>
+      </div>
+      <div class="card">
+        <div class="card-num">MODULE 06</div>
+        <div class="card-icon">🧠</div>
+        <div class="card-title">进阶专题与经验分享</div>
+        <div class="card-desc">RAG 知识库、速度调优、踩坑总结、微调入门</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 01 ═══ -->
+<!-- ── S2 章节过渡 ── -->
+<div class="slide centered" data-title="§1 专业名词与基础概念">
+  <div class="slide-inner">
+    <div class="chapter-num-big">01</div>
+    <div class="chapter-title-big">专业名词与基础概念</div>
+    <div class="chapter-desc">扫清术语障碍，建立正确的认知框架<br>让后续内容一看就懂</div>
+  </div>
+</div>
+
+<!-- ── S3 什么是 LLM ── -->
+<div class="slide" data-title="什么是 LLM？">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 01 · 01</div>
+    <div class="slide-title">什么是 LLM？</div>
+    <div class="slide-desc">大语言模型（Large Language Model）的核心概念</div>
+
+    <div class="two-col" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-title">🤖 传统 AI</div>
+        <div class="card-desc" style="margin-top:8px">
+          规则驱动，针对特定任务训练<br>
+          如：图像分类、语音识别、推荐系统<br><br>
+          <span class="tag tag-orange">窄 AI</span>
+          <span class="tag tag-orange">任务专用</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">✨ 大语言模型</div>
+        <div class="card-desc" style="margin-top:8px">
+          海量文本训练，涌现通用理解与生成能力<br>
+          写作、代码、问答、推理……一模多用<br><br>
+          <span class="tag tag-teal">通用 AI</span>
+          <span class="tag tag-teal">涌现能力</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-title">💡 核心原理</div>
+      LLM 的本质是一个<strong>概率预测机器</strong>：给定前文，预测下一个最可能出现的 Token。海量参数+海量数据让它在这个看似简单的任务中"学会"了语言理解、逻辑推理。
+    </div>
+
+    <div class="callout tip" style="margin-top:12px">
+      <div class="callout-title">📌 关键词</div>
+      <span class="tag tag-blue">Transformer 架构</span>
+      <span class="tag tag-blue">自注意力机制</span>
+      <span class="tag tag-blue">预训练 + 微调</span>
+      <span class="tag tag-blue">RLHF 对齐</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── S4 Token 与上下文 ── -->
+<div class="slide" data-title="Token 与上下文窗口">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 01 · 02</div>
+    <div class="slide-title">Token 与上下文窗口</div>
+    <div class="slide-desc">理解 LLM 的"感知单元"与"记忆上限"</div>
+
+    <div class="two-col">
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title">🧩 Token 是什么？</div>
+          <div class="card-desc" style="margin-top:8px;line-height:1.8">
+            Token ≠ 字符，≠ 单词<br>
+            中文：约 <code>1.5~2 字 / Token</code><br>
+            英文：约 <code>0.75 词 / Token</code><br><br>
+            "你好世界" → 大约 <strong style="color:var(--accent)">4 Tokens</strong><br>
+            "helloworld" → 大约 <strong style="color:var(--blue)">2 Tokens</strong>
+          </div>
+        </div>
+        <div class="callout warn">
+          <div class="callout-title">⚠️ 计费与限速</div>
+          API 调用按 Token 计费；本地部署的速度（tok/s）也以此为单位衡量
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title">📐 上下文窗口（Context Window）</div>
+          <div class="card-desc" style="margin-top:8px;line-height:1.8">
+            模型一次能"看到"的最大 Token 数<br><br>
+            <span class="tag tag-blue">4K</span> 适合简单问答<br>
+            <span class="tag tag-green">32K</span> 可处理中等长度文档<br>
+            <span class="tag tag-purple">128K+</span> 长文档、多轮对话
+          </div>
+        </div>
+        <div class="callout tip">
+          <div class="callout-title">📌 本地部署影响</div>
+          上下文越长，占用 VRAM 越多（KV Cache）。本地跑 8K 比 128K 省很多显存
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S5 参数量与量化 ── -->
+<div class="slide" data-title="参数量与量化">
+  <div class="slide-inner" style="padding-top:48px;padding-bottom:88px">
+    <div class="chapter-num-label">MODULE 01 · 03</div>
+    <div class="slide-title" style="margin-bottom:4px">参数量与量化</div>
+    <div class="slide-desc" style="margin-bottom:12px">7B / 13B / 70B 意味着什么？Q4 / Q8 / FP16 怎么选？</div>
+
+    <div class="two-col" style="margin-bottom:10px;gap:12px">
+      <div class="card" style="padding:14px">
+        <div class="card-title" style="margin-bottom:6px">📊 参数量（B = Billion）</div>
+        <div class="card-desc">
+          <div class="spec-bar">
+            <div class="spec-bar-label"><span>7B — 入门友好</span><span style="color:var(--green)">~4GB VRAM</span></div>
+            <div class="spec-bar-track"><div class="spec-bar-fill" style="width:20%"></div></div>
+          </div>
+          <div class="spec-bar" style="margin-top:7px">
+            <div class="spec-bar-label"><span>13B — 性价比首选</span><span style="color:var(--accent)">~8GB VRAM</span></div>
+            <div class="spec-bar-track"><div class="spec-bar-fill" style="width:36%"></div></div>
+          </div>
+          <div class="spec-bar" style="margin-top:7px">
+            <div class="spec-bar-label"><span>34B — 高质量推理</span><span style="color:var(--blue)">~20GB VRAM</span></div>
+            <div class="spec-bar-track"><div class="spec-bar-fill" style="width:60%"></div></div>
+          </div>
+          <div class="spec-bar" style="margin-top:7px">
+            <div class="spec-bar-label"><span>70B — 接近 GPT-4</span><span style="color:var(--accent2)">~40GB VRAM</span></div>
+            <div class="spec-bar-track"><div class="spec-bar-fill" style="width:100%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="card-title" style="margin-bottom:6px">🗜️ 量化（Quantization）</div>
+        <div class="card-desc" style="line-height:1.7">
+          <span class="tag tag-orange">FP32</span> 原始精度，训练用，极耗显存<br>
+          <span class="tag tag-orange">FP16</span> 推理常用，质量高，显存 × ½<br>
+          <span class="tag tag-teal">Q8</span> 量化 8bit，几乎无损，显存 × ¼<br>
+          <span class="tag tag-green">Q4</span> 量化 4bit，<strong>本地主流</strong>，显存 × ⅛<br>
+          <span class="tag tag-blue">Q2</span> 极度压缩，质量下降明显
+        </div>
+        <div class="callout" style="margin-top:8px;padding:8px 12px">
+          <div class="callout-title">✅ 推荐策略</div>
+          日常使用 <code>Q4_K_M</code> 格式：质量与显存的最佳平衡点
+        </div>
+      </div>
+    </div>
+
+    <table class="data-table" style="margin:0 0 10px;font-size:12px">
+      <tr><th>格式</th><th>每参数存储</th><th>7B 显存需求</th><th>质量损失</th><th>适用场景</th></tr>
+      <tr><td>FP16</td><td>2 字节</td><td>~14 GB</td><td>无</td><td>高端 GPU</td></tr>
+      <tr><td>Q8_0</td><td>1 字节</td><td>~7 GB</td><td>极少</td><td>8GB 显卡</td></tr>
+      <tr><td>Q4_K_M</td><td>0.5 字节</td><td>~4.5 GB</td><td>较少</td><td>✅ 推荐日常</td></tr>
+      <tr><td>Q2_K</td><td>0.25 字节</td><td>~2.5 GB</td><td>较大</td><td>极限省显存</td></tr>
+    </table>
+
+    <div style="margin-bottom:6px;font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace;font-size:10px;color:var(--accent);letter-spacing:.12em">🔢 显存需求快速换算公式</div>
+    <div class="two-col" style="gap:12px">
+      <div class="card" style="padding:12px">
+        <div class="card-title" style="margin-bottom:6px">📐 基础公式</div>
+        <div class="card-desc" style="font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace;font-size:11.5px;line-height:1.7">
+          <span style="color:var(--accent)">模型权重显存</span> = 参数量(B) × 每参数字节数<br>
+          <span style="color:var(--text-dim)">FP16：× 2　Q8：× 1　Q4：× 0.5</span><br>
+          <span style="color:var(--accent)">KV Cache 显存</span> ≈ 上下文长度(K) × 0.5 MB<br>
+          <span style="color:var(--text-dim)">8K 上下文约需额外 ~4 GB</span><br>
+          <span style="color:var(--accent2)">总显存需求</span> = 权重 + KV Cache + ~10% 余量
+        </div>
+      </div>
+      <div class="card" style="padding:12px">
+        <div class="card-title" style="margin-bottom:6px">🧮 实际换算示例</div>
+        <div class="card-desc" style="font-size:11.5px;line-height:1.7">
+          <strong style="color:var(--text-bright)">Qwen2.5-7B Q4（4K上下文）</strong><br>
+          <span style="color:var(--text-dim)">7 × 0.5 + 2 + 0.5 ≈ </span><span style="color:var(--green)">6 GB ✅ 8GB 卡可用</span><br>
+          <strong style="color:var(--text-bright)">DeepSeek-R1-14B Q4（8K上下文）</strong><br>
+          <span style="color:var(--text-dim)">14 × 0.5 + 4 + 0.7 ≈ </span><span style="color:var(--accent)">11.7 GB ✅ 16GB 卡可用</span><br>
+          <strong style="color:var(--text-bright)">Llama-3.1-70B Q4（4K上下文）</strong><br>
+          <span style="color:var(--text-dim)">70 × 0.5 + 2 + 3.5 ≈ </span><span style="color:var(--accent2)">40.5 GB ⚠️ 需双卡 3090</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S6 模型格式 ── -->
+<div class="slide" data-title="常见模型格式">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 01 · 04</div>
+    <div class="slide-title">常见模型格式</div>
+    <div class="slide-desc">GGUF / GPTQ / AWQ / SafeTensors——各有适用场景</div>
+
+    <div class="compare-grid">
+      <div class="compare-card recommended">
+        <h4>GGUF</h4>
+        <div class="cc-sub">llama.cpp 生态</div>
+        <ul>
+          <li>CPU + GPU 混合推理</li>
+          <li>支持多种量化等级</li>
+          <li>Ollama 默认格式</li>
+          <li class="con">纯 GPU 吞吐量较低</li>
+        </ul>
+        <div style="margin-top:10px"><span class="tag tag-teal">✅ 入门首选</span></div>
+      </div>
+      <div class="compare-card">
+        <h4>GPTQ</h4>
+        <div class="cc-sub">GPU 量化标准</div>
+        <ul>
+          <li>针对 NVIDIA GPU 优化</li>
+          <li>4bit 量化精度较好</li>
+          <li>HuggingFace 广泛支持</li>
+          <li class="con">需要特定 GPU 库</li>
+        </ul>
+        <div style="margin-top:10px"><span class="tag tag-blue">GPU 量化推理</span></div>
+      </div>
+      <div class="compare-card">
+        <h4>AWQ</h4>
+        <div class="cc-sub">激活感知量化</div>
+        <ul>
+          <li>量化质量优于 GPTQ</li>
+          <li>vLLM 原生支持</li>
+          <li>适合高并发场景</li>
+          <li class="con">兼容性略窄</li>
+        </ul>
+        <div style="margin-top:10px"><span class="tag tag-purple">高吞吐量推荐</span></div>
+      </div>
+      <div class="compare-card">
+        <h4>SafeTensors</h4>
+        <div class="cc-sub">HuggingFace 原生</div>
+        <ul>
+          <li>安全、无恶意代码</li>
+          <li>FP16 全精度</li>
+          <li>加载速度快</li>
+          <li class="con">文件最大，无量化</li>
+        </ul>
+        <div style="margin-top:10px"><span class="tag tag-orange">微调 / 研究用</span></div>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:16px">
+      <div class="callout-title">📌 本地部署建议</div>
+      入门用 <code>GGUF (Q4_K_M)</code> + Ollama，追求高吞吐用 <code>AWQ</code> + vLLM，微调实验用 <code>SafeTensors</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 02 ═══ -->
+<!-- ── S7 章节过渡 ── -->
+<div class="slide centered" data-title="§2 主流模型对比与排名">
+  <div class="slide-inner">
+    <div class="chapter-num-big">02</div>
+    <div class="chapter-title-big">主流模型对比与排名</div>
+    <div class="chapter-desc">开源生态全景扫描，找到最适合你场景的模型</div>
+  </div>
+</div>
+
+<!-- ── S8 开源模型全景 ── -->
+<div class="slide" data-title="开源模型生态全景">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 02 · 01</div>
+    <div class="slide-title">开源模型生态全景</div>
+    <div class="slide-desc">2024–2025 主流开源大模型家族</div>
+
+    <div class="compare-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="compare-card">
+        <h4 style="color:var(--blue)">Llama 系列</h4>
+        <div class="cc-sub">Meta · 开源先驱</div>
+        <ul>
+          <li>Llama 3.1 / 3.2 / 3.3</li>
+          <li>8B / 70B / 405B</li>
+          <li>英文能力极强</li>
+          <li class="con">中文相对一般</li>
+        </ul>
+      </div>
+      <div class="compare-card recommended">
+        <h4 style="color:var(--accent)">Qwen 系列</h4>
+        <div class="cc-sub">阿里巴巴 · 中文之王</div>
+        <ul>
+          <li>Qwen2.5 / Qwen3</li>
+          <li>0.5B ~ 72B 全规格</li>
+          <li>中英双语最强</li>
+          <li>代码 / 数学出色</li>
+        </ul>
+        <div style="margin-top:8px"><span class="tag tag-teal">中文首选</span></div>
+      </div>
+      <div class="compare-card recommended">
+        <h4 style="color:var(--accent3)">DeepSeek 系列</h4>
+        <div class="cc-sub">深度求索 · 性价比之王</div>
+        <ul>
+          <li>DeepSeek-V3 / R1</li>
+          <li>MoE 架构高效</li>
+          <li>推理能力顶级</li>
+          <li>完全开源权重</li>
+        </ul>
+        <div style="margin-top:8px"><span class="tag tag-purple">推理首选</span></div>
+      </div>
+      <div class="compare-card">
+        <h4 style="color:var(--pink)">Mistral 系列</h4>
+        <div class="cc-sub">Mistral AI · 欧洲之光</div>
+        <ul>
+          <li>Mistral 7B / Mixtral 8x7B</li>
+          <li>极高效率</li>
+          <li>MoE 先驱</li>
+          <li class="con">中文较弱</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <h4 style="color:var(--green)">Gemma 系列</h4>
+        <div class="cc-sub">Google · 小而精</div>
+        <ul>
+          <li>Gemma 2 / 3</li>
+          <li>2B / 9B / 27B</li>
+          <li>轻量端侧友好</li>
+          <li class="con">中文一般</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <h4 style="color:var(--yellow-display)">Phi 系列</h4>
+        <div class="cc-sub">Microsoft · 小模型大能力</div>
+        <ul>
+          <li>Phi-3 / Phi-4</li>
+          <li>3.8B ~ 14B</li>
+          <li>轻量高质</li>
+          <li class="con">参数规模受限</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S9 评测榜单 ── -->
+<div class="slide" data-title="评测榜单解读">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 02 · 02</div>
+    <div class="slide-title">评测榜单解读</div>
+    <div class="slide-desc">看懂主流基准测试，不被数字迷惑</div>
+
+    <table class="data-table" style="margin-bottom:20px">
+      <tr><th>基准</th><th>测什么</th><th>满分</th><th>参考意义</th></tr>
+      <tr><td><code>MMLU</code></td><td>多学科知识问答（57 科）</td><td>100%</td><td>通用知识广度</td></tr>
+      <tr><td><code>HumanEval</code></td><td>Python 代码生成通过率</td><td>100%</td><td>编程能力</td></tr>
+      <tr><td><code>MATH</code></td><td>竞赛数学解题</td><td>100%</td><td>数理推理</td></tr>
+      <tr><td><code>C-Eval</code></td><td>中文学科知识</td><td>100%</td><td>中文能力</td></tr>
+      <tr><td><code>MT-Bench</code></td><td>多轮对话质量（GPT-4 评分）</td><td>10分</td><td>指令遵循</td></tr>
+      <tr><td><code>GPQA</code></td><td>专家级科学问题</td><td>100%</td><td>深度推理</td></tr>
+    </table>
+
+    <div class="callout warn">
+      <div class="callout-title">⚠️ 榜单陷阱</div>
+      刷榜现象普遍——高分模型不一定"好用"。建议结合 <strong>Chatbot Arena（LMSYS）</strong> 人类偏好排名，更贴近实际使用体验。
+    </div>
+
+    <div class="callout tip" style="margin-top:12px">
+      <div class="callout-title">📌 实用建议</div>
+      选模型看三点：①你的<strong>主要语言</strong>（中/英）②你的<strong>核心任务</strong>（代码/写作/推理）③你的<strong>显存上限</strong>。综合排名不如场景匹配。
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 03 ═══ -->
+<!-- ── S10 章节过渡 ── -->
+<div class="slide centered" data-title="§3 硬件配置选择指南">
+  <div class="slide-inner">
+    <div class="chapter-num-big">03</div>
+    <div class="chapter-title-big">硬件配置选择指南</div>
+    <div class="chapter-desc">VRAM 决定上限，带宽决定速度<br>用对硬件，事半功倍</div>
+  </div>
+</div>
+
+<!-- ── S11 GPU 核心指标 ── -->
+<div class="slide" data-title="GPU 选购核心指标">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 03 · 01</div>
+    <div class="slide-title">GPU 选购核心指标</div>
+    <div class="slide-desc">LLM 推理与游戏/图形渲染的需求截然不同</div>
+
+    <div class="two-col" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">🥇 显存容量（VRAM）— 最重要</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          决定能跑多大的模型<br>
+          模型权重 + KV Cache 都存在显存里<br>
+          <strong style="color:var(--accent)">显存不够 = 模型跑不起来</strong>（或极慢）
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🥈 显存带宽 — 决定速度</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          决定 Token 生成速度（tok/s）<br>
+          LLM 推理是带宽密集型，非算力密集型<br>
+          <strong style="color:var(--accent)">带宽越大 = 回复越流畅</strong>
+        </div>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <tr><th>GPU</th><th>VRAM</th><th>带宽</th><th>可跑模型规模</th><th>参考价格</th><th>推荐度</th></tr>
+      <tr><td>RTX 4060</td><td>8 GB</td><td>272 GB/s</td><td>7B Q4</td><td>~2500元</td><td><span class="tag tag-blue">入门</span></td></tr>
+      <tr><td>RTX 4060 Ti</td><td>16 GB</td><td>288 GB/s</td><td>13B Q4</td><td>~3800元</td><td><span class="tag tag-green">推荐</span></td></tr>
+      <tr><td>RTX 3090</td><td>24 GB</td><td>936 GB/s</td><td>34B Q4</td><td>~5000元</td><td><span class="tag tag-teal">高性价比</span></td></tr>
+      <tr><td>RTX 4090</td><td>24 GB</td><td>1008 GB/s</td><td>34B Q4</td><td>~13000元</td><td><span class="tag tag-purple">发烧级</span></td></tr>
+      <tr><td>双卡 3090</td><td>48 GB</td><td>1872 GB/s</td><td>70B Q4</td><td>~10000元</td><td><span class="tag tag-orange">进阶多卡</span></td></tr>
+    </table>
+
+    <div class="callout warn" style="margin-top:12px">
+      <div class="callout-title">⚠️ 注意</div>
+      AMD GPU 理论上可用（ROCm），但驱动生态远不如 NVIDIA CUDA 成熟，新手建议坚持 N 卡。
+    </div>
+  </div>
+</div>
+
+<!-- ── S12 整机配置 ── -->
+<div class="slide" data-title="整机配置建议">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 03 · 02</div>
+    <div class="slide-title">各预算段配置清单</div>
+    <div class="slide-desc">CPU 和内存也很重要——别让 GPU 闲着</div>
+
+    <div class="compare-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+      <div class="compare-card">
+        <h4>💰 入门方案 ~¥8,000</h4>
+        <div class="cc-sub">7B 模型流畅运行</div>
+        <ul>
+          <li>GPU: RTX 4060 Ti 16GB</li>
+          <li>CPU: i5-13600K / R5-7600</li>
+          <li>RAM: 32GB DDR5</li>
+          <li>SSD: 1TB NVMe</li>
+          <li>可运行 Qwen2.5-7B Q4</li>
+        </ul>
+      </div>
+      <div class="compare-card recommended">
+        <h4>⚖️ 主力方案 ~¥15,000</h4>
+        <div class="cc-sub">✅ 最推荐配置</div>
+        <ul>
+          <li>GPU: RTX 3090 24GB</li>
+          <li>CPU: i7-13700K / R7-7700X</li>
+          <li>RAM: 64GB DDR5</li>
+          <li>SSD: 2TB NVMe</li>
+          <li>可运行 34B Q4 / 13B FP16</li>
+        </ul>
+        <div style="margin-top:8px"><span class="tag tag-teal">性价比最优</span></div>
+      </div>
+      <div class="compare-card">
+        <h4>🚀 进阶方案 ~¥25,000+</h4>
+        <div class="cc-sub">70B 级别模型</div>
+        <ul>
+          <li>GPU: RTX 4090 × 1 或 3090 × 2</li>
+          <li>CPU: i9-13900K / TR 系列</li>
+          <li>RAM: 128GB DDR5</li>
+          <li>SSD: 4TB NVMe</li>
+          <li>可运行 70B Q4 全量</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">📌 CPU + RAM 的作用</div>
+      当模型太大无法完全放入显存时，llama.cpp 会将部分层卸载到 CPU/RAM（CPU Offload）。RAM 越大，能跑的模型越大，但速度会下降。<strong>64GB RAM 是舒适起点</strong>。
+    </div>
+
+    <div class="callout" style="margin-top:10px">
+      <div class="callout-title">🔗 推荐工具</div>
+      <strong>LLM 推理：显存与性能计算器（推理模拟）</strong><br>
+      在线估算任意模型在指定 GPU 上的显存占用与推理速度，选配前必看。<br>
+      <a href="https://apxml.com/zh/tools/vram-calculator" target="_blank"
+         style="color:var(--accent);font-family:'SiteFontMono','Fira Code',monospace;font-size:12px;text-decoration:none;border-bottom:1px solid var(--accent)">
+        https://apxml.com/zh/tools/vram-calculator ↗
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 04 ═══ -->
+<!-- ── S13 章节过渡 ── -->
+<div class="slide centered" data-title="§4 主流部署框架详解">
+  <div class="slide-inner">
+    <div class="chapter-num-big">04</div>
+    <div class="chapter-title-big">主流部署框架详解</div>
+    <div class="chapter-desc">选对工具，比优化参数更重要</div>
+  </div>
+</div>
+
+<!-- ── S14 框架对比 ── -->
+<div class="slide" data-title="框架横向对比">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 04 · 01</div>
+    <div class="slide-title">框架横向对比矩阵</div>
+    <div class="slide-desc">七大主流框架，各有擅长场景</div>
+
+    <table class="data-table">
+      <tr><th>框架</th><th>难度</th><th>适用平台</th><th>核心优势</th><th>适用场景</th></tr>
+      <tr>
+        <td><strong style="color:var(--accent)">Ollama</strong></td>
+        <td><span class="tag tag-green">⭐ 入门</span></td>
+        <td>Win / Mac / Linux</td>
+        <td>一键安装，命令最简</td>
+        <td>✅ 新手首选</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--blue)">LM Studio</strong></td>
+        <td><span class="tag tag-green">⭐ 入门</span></td>
+        <td>Win / Mac（GUI）</td>
+        <td>图形界面，无需命令行</td>
+        <td>非技术用户</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--yellow-display)">llama.cpp</strong></td>
+        <td><span class="tag tag-blue">⭐⭐ 中级</span></td>
+        <td>全平台 + CPU</td>
+        <td>CPU 推理，极度轻量</td>
+        <td>无 GPU / 低配环境</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--pink)">MLX</strong></td>
+        <td><span class="tag tag-blue">⭐⭐ 中级</span></td>
+        <td>Apple Silicon（仅 Mac）</td>
+        <td>统一内存直接跑大模型，速度媲美 GPU</td>
+        <td>✅ Mac 用户首选</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--accent3)">Text Gen WebUI</strong></td>
+        <td><span class="tag tag-blue">⭐⭐ 中级</span></td>
+        <td>Win / Linux</td>
+        <td>功能最全，格式最广</td>
+        <td>模型实验研究</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--accent2)">NVIDIA NIM</strong></td>
+        <td><span class="tag tag-orange">⭐⭐⭐ 进阶</span></td>
+        <td>Linux（NVIDIA GPU）</td>
+        <td>官方优化容器，TensorRT 加速，开箱即用</td>
+        <td>企业级 / 高性能服务</td>
+      </tr>
+      <tr>
+        <td><strong style="color:var(--green)">vLLM</strong></td>
+        <td><span class="tag tag-orange">⭐⭐⭐ 进阶</span></td>
+        <td>Linux（NVIDIA）</td>
+        <td>吞吐量极高，PagedAttention</td>
+        <td>多并发 API 服务</td>
+      </tr>
+    </table>
+
+    <div class="callout" style="margin-top:14px">
+      <div class="callout-title">💡 选型建议</div>
+      个人 PC（Windows/Linux） → <code>Ollama</code>　　Mac Apple Silicon → <code>MLX</code> / <code>Ollama</code><br>
+      企业内网高并发 → <code>NVIDIA NIM</code> / <code>vLLM</code>　　无 GPU → <code>llama.cpp</code>
+    </div>
+  </div>
+</div>
+
+<!-- ── S15 Ollama 详解 ── -->
+<div class="slide" data-title="Ollama 深度解析">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 04 · 02</div>
+    <div class="slide-title">Ollama — 本地 LLM 的最简入口</div>
+    <div class="slide-desc">一行命令拉取模型、启动服务、接入应用</div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div>
+        <div class="term-dot term-dot-y"></div>
+        <div class="term-dot term-dot-g"></div>
+        <span class="term-label">bash — Ollama 快速上手</span>
+      </div>
+      <div class="term-body">
+<span class="t-comment"># 1. 安装 Ollama（Linux / macOS）</span>
+<span class="t-prompt">$ </span><span class="t-cmd">curl -fsSL https://ollama.com/install.sh | sh</span>
+
+<span class="t-comment"># 2. 拉取并运行模型（自动下载）</span>
+<span class="t-prompt">$ </span><span class="t-cmd">ollama run qwen2.5:7b</span>
+<span class="t-out">pulling manifest... ████████████ 100%</span>
+<span class="t-out">>>> 你好！有什么可以帮你的？</span>
+
+<span class="t-comment"># 3. 查看已下载模型</span>
+<span class="t-prompt">$ </span><span class="t-cmd">ollama list</span>
+<span class="t-out">NAME                    ID            SIZE    MODIFIED</span>
+<span class="t-out">qwen2.5:7b              abc123...     4.7 GB  2 minutes ago</span>
+
+<span class="t-comment"># 4. OpenAI 兼容 API 调用</span>
+<span class="t-prompt">$ </span><span class="t-cmd">curl</span> <span class="t-str">http://localhost:11434/v1/chat/completions</span> <span class="t-flag">\</span>
+     <span class="t-flag">-d</span> <span class="t-str">'{"model":"qwen2.5:7b","messages":[{"role":"user","content":"你好"}]}'</span></div></div>
+
+    <div class="two-col" style="margin-top:12px">
+      <div class="callout">
+        <div class="callout-title">✅ Ollama 优势</div>
+        自动管理模型文件；内置 GPU 层数自动检测；OpenAI API 兼容，可直接接入 Open WebUI、AnythingLLM、LobeChat 等
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">📌 常用模型拉取命令</div>
+        <code>ollama pull deepseek-r1:14b</code><br>
+        <code>ollama pull llama3.2:3b</code><br>
+        <code>ollama pull nomic-embed-text</code>（向量模型）
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S15b MLX & oMLX Quick Start ── -->
+<div class="slide" data-title="MLX / oMLX Quick Start（Apple Silicon）">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 04 · 03</div>
+    <div class="slide-title">MLX 生态 — Apple Silicon 的专属加速</div>
+    <div class="slide-desc">mlx-lm 是基础，oMLX 是为 Agent 场景打造的生产级增强版</div>
+
+    <div class="two-col" style="margin-bottom:14px">
+
+      <!-- mlx-lm -->
+      <div class="card">
+        <div class="card-title" style="color:var(--pink)">🧰 mlx-lm &nbsp;<span class="tag tag-purple" style="font-size:10px">Apple 官方</span></div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          Apple 开源的 MLX 推理工具包，底层框架<br>
+          支持 MLX / GGUF 量化格式<br>
+          提供命令行推理 + 简单 HTTP 服务<br>
+          速度约为 llama.cpp 的 <strong style="color:var(--accent)">1.5~2×</strong><br>
+          <span class="tag tag-pink">仅限 Mac M 系列</span>
+        </div>
+        <div class="terminal" style="margin-top:10px">
+          <div class="term-bar">
+            <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+            <span class="term-label">bash — mlx-lm</span>
+          </div>
+          <div class="term-body" style="font-size:12px">
+<span class="t-prompt">$ </span><span class="t-cmd">pip install mlx-lm</span>
+<span class="t-prompt">$ </span><span class="t-cmd">mlx_lm.generate</span> <span class="t-flag">\</span>
+    <span class="t-flag">--model</span> <span class="t-str">mlx-community/Qwen2.5-7B-Instruct-4bit</span> <span class="t-flag">\</span>
+    <span class="t-flag">--prompt</span> <span class="t-str">"你好"</span>
+<span class="t-prompt">$ </span><span class="t-cmd">mlx_lm.server</span> <span class="t-flag">\</span>
+    <span class="t-flag">--model</span> <span class="t-str">mlx-community/Qwen2.5-14B-Instruct-4bit</span> <span class="t-flag">\</span>
+    <span class="t-flag">--port</span> <span class="t-str">8080</span>
+<span class="t-success">✔ http://localhost:8080  OpenAI 兼容</span></div>
+        </div>
+      </div>
+
+      <!-- oMLX -->
+      <div class="card" style="border-color:var(--accent)">
+        <div class="card-title" style="color:var(--accent)">🚀 oMLX &nbsp;<span class="tag tag-teal" style="font-size:10px">Agent 优化</span></div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          基于 MLX 的 macOS 原生生产级推理服务器<br>
+          <strong>核心亮点：SSD 分页 KV 缓存</strong>——把 KV Cache 持久化到磁盘，跨请求、跨重启可复用，Agent 多轮对话第二次响应 <strong style="color:var(--accent)">&lt;5 秒</strong>（vs 普通方案 30~90 秒）<br>
+          连续批处理，8 并发可达 <strong style="color:var(--accent)">4.14×</strong> 吞吐提升<br>
+          支持 OpenAI + Anthropic 双协议兼容<br>
+          原生菜单栏 App，已签名公证
+        </div>
+        <div class="terminal" style="margin-top:10px">
+          <div class="term-bar">
+            <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+            <span class="term-label">bash — oMLX 从源码安装</span>
+          </div>
+          <div class="term-body" style="font-size:12px">
+<span class="t-comment"># 方式一：下载 DMG 安装包（推荐）</span>
+<span class="t-out">https://github.com/jundot/omlx/releases</span>
+
+<span class="t-comment"># 方式二：从源码安装</span>
+<span class="t-prompt">$ </span><span class="t-cmd">git clone https://github.com/jundot/omlx</span>
+<span class="t-prompt">$ </span><span class="t-cmd">cd omlx && pip install -e .</span>
+<span class="t-prompt">$ </span><span class="t-cmd">omlx serve</span> <span class="t-flag">--model-dir</span> <span class="t-str">~/models</span>
+<span class="t-success">✔ http://localhost:8000  OpenAI + Anthropic 兼容</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="callout warn">
+        <div class="callout-title">⚡ oMLX vs mlx-lm 核心差异</div>
+        mlx-lm 每次请求都从头计算 KV Cache；oMLX 将 Cache 块写入 SSD，再次遇到相同前缀直接从磁盘恢复——Coding Agent 反复读取同一代码库时效果最显著
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">📌 适用场景选择</div>
+        单次问答 / 简单脚本 → <code>mlx-lm</code><br>
+        Claude Code / Cursor 本地后端 → <code>oMLX</code><br>
+        GUI 对话 → <code>LM Studio</code> / <code>Ollama</code><br>
+        需要 Anthropic API 格式 → <code>oMLX</code>（原生支持 <code>/v1/messages</code>）
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 05 ═══ -->
+<!-- ── S16 章节过渡 ── -->
+<div class="slide centered" data-title="§5 部署实战">
+  <div class="slide-inner">
+    <div class="chapter-num-big">05</div>
+    <div class="chapter-title-big">部署实战</div>
+    <div class="chapter-desc">从安装驱动到界面对话<br>跟着做，一定能跑起来</div>
+  </div>
+</div>
+
+<!-- ── S17 环境准备 ── -->
+<div class="slide" data-title="环境准备：驱动与 CUDA">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 05 · 01</div>
+    <div class="slide-title">环境准备：驱动与 CUDA</div>
+    <div class="slide-desc">地基打好，一切后续工作才不会出问题</div>
+
+    <div class="workflow" style="margin-bottom:20px">
+      <div class="workflow-step">
+        <div class="wf-num">1</div>
+        <div class="wf-content">
+          <div class="wf-title">安装 NVIDIA 驱动</div>
+          <div class="wf-desc">驱动版本 ≥ 525 才支持 CUDA 12.x。建议安装最新稳定版，避免用系统默认驱动。</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">2</div>
+        <div class="wf-content">
+          <div class="wf-title">验证驱动安装</div>
+          <div class="wf-desc"><code>nvidia-smi</code> 输出正常，可以看到 GPU 型号、显存、驱动版本</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">3</div>
+        <div class="wf-content">
+          <div class="wf-title">安装 CUDA Toolkit（可选）</div>
+          <div class="wf-desc">Ollama / llama.cpp 自带 CUDA 运行时，<strong>不需要额外安装</strong>。只有开发者才需要完整 CUDA Toolkit。</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">4</div>
+        <div class="wf-content">
+          <div class="wf-title">安装 Python 环境（可选）</div>
+          <div class="wf-desc">使用 vLLM / HuggingFace 才需要。推荐 <code>conda</code> 管理虚拟环境，避免依赖冲突。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+        <span class="term-label">bash — 环境验证</span>
+      </div>
+      <div class="term-body">
+<span class="t-prompt">$ </span><span class="t-cmd">nvidia-smi</span>
+<span class="t-out">+-----------------------------------------------------------------------------+</span>
+<span class="t-out">| NVIDIA-SMI 535.104  Driver Version: 535.104  CUDA Version: 12.2             |</span>
+<span class="t-out">| GPU 0: NVIDIA GeForce RTX 3090  24564MiB / 24576MiB                         |</span>
+<span class="t-out">+-----------------------------------------------------------------------------+</span></div></div>
+  </div>
+</div>
+
+<!-- ── S18 模型下载 ── -->
+<div class="slide" data-title="模型下载与 GPU 监控">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 05 · 02</div>
+    <div class="slide-title">模型下载 + GPU 实时监控</div>
+    <div class="slide-desc">下载模型、验证 GPU 占用，一步到位</div>
+
+    <div class="two-col" style="margin-bottom:14px">
+      <div class="card">
+        <div class="card-title">🌐 HuggingFace</div>
+        <div class="card-desc" style="margin-top:8px">
+          全球最大模型社区，资源最全，国内访问可能需要代理<br>
+          推荐使用镜像站：<code>hf-mirror.com</code>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🇨🇳 ModelScope</div>
+        <div class="card-desc" style="margin-top:8px">
+          阿里魔搭社区，国内无障碍访问，Qwen、Qwen-VL 等模型首发地<br>
+          下载速度快，推荐国内用户优先
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+        <span class="term-label">bash — 模型下载方法</span>
+      </div>
+      <div class="term-body">
+<span class="t-comment"># 方法一：Ollama 直接拉取（最简单）</span>
+<span class="t-prompt">$ </span><span class="t-cmd">ollama pull qwen2.5:14b</span>
+<span class="t-comment"># 方法二：HuggingFace CLI（使用镜像加速）</span>
+<span class="t-prompt">$ </span><span class="t-kw">export</span> <span class="t-highlight">HF_ENDPOINT</span>=https://hf-mirror.com
+<span class="t-prompt">$ </span><span class="t-cmd">pip install huggingface_hub</span>
+<span class="t-prompt">$ </span><span class="t-cmd">huggingface-cli download</span> <span class="t-str">Qwen/Qwen2.5-7B-Instruct-GGUF</span> <span class="t-flag">--include</span> <span class="t-str">"*q4_k_m*"</span> <span class="t-flag">--local-dir</span> <span class="t-str">./models/</span>
+<span class="t-comment"># 方法三：ModelScope（国内推荐）</span>
+<span class="t-prompt">$ </span><span class="t-cmd">pip install modelscope</span>
+<span class="t-prompt">$ </span><span class="t-cmd">modelscope download</span> <span class="t-flag">--model</span> <span class="t-str">qwen/Qwen2.5-7B-Instruct</span> <span class="t-flag">--local_dir</span> <span class="t-str">./models/qwen2.5-7b/</span></div></div>
+
+    <div style="margin-top:16px;margin-bottom:8px;font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace;font-size:11px;color:var(--accent);letter-spacing:.12em">📊 GPU 实时监控 — nvtop</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🖥️ 什么是 nvtop？</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          类似 <code>htop</code> 的 GPU 实时监控工具<br>
+          显示显存占用、GPU 利用率、温度、功耗<br>
+          支持多卡并排显示，推理时必备<br>
+          <span class="tag tag-green">开源免费</span> <span class="tag tag-blue">Linux / Mac</span>
+        </div>
+      </div>
+      <div>
+        <div class="terminal" style="margin:0">
+          <div class="term-bar">
+            <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+            <span class="term-label">bash — nvtop 安装与使用</span>
+          </div>
+          <div class="term-body" style="font-size:12px">
+<span class="t-comment"># Ubuntu / Debian / macOS安装</span>
+<span class="t-prompt">$ </span><span class="t-cmd">sudo apt install nvtop 或 brew install nvtop</span>
+<span class="t-comment"># 启动监控</span>
+<span class="t-prompt">$ </span><span class="t-cmd">nvtop</span>
+<span class="t-out">GPU 0 RTX 3090  [████████░░] 78%</span>
+<span class="t-out">MEM 18432/24576 MiB  ⚡ 320W  🌡 72°C</span></div></div>
+      </div>
+    </div>
+
+    <div class="callout tip" style="margin-top:12px">
+      <div class="callout-title">📌 推理时重点关注的指标</div>
+      <strong>MEM Used</strong>：模型是否完全载入显存（越满越好，溢出则 CPU Offload 变慢）&nbsp;·&nbsp;
+      <strong>GPU Util%</strong>：生成 Token 时应 &gt;80%，若接近 0% 说明在等 CPU&nbsp;·&nbsp;
+      <strong>Temp</strong>：长时推理注意散热，超过 85°C 考虑降频保护
+    </div>
+  </div>
+</div>
+
+<!-- ── S19 Open WebUI ── -->
+<div class="slide" data-title="搭建本地 ChatGPT 界面">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 05 · 03</div>
+    <div class="slide-title">搭建本地 ChatGPT 界面</div>
+    <div class="slide-desc">Open WebUI — 连接 Ollama，5 分钟拥有私有 ChatGPT</div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+        <span class="term-label">bash — Docker 一键部署 Open WebUI</span>
+      </div>
+      <div class="term-body">
+<span class="t-comment"># 前提：已安装 Docker 且 Ollama 在运行</span>
+<span class="t-prompt">$ </span><span class="t-cmd">docker run -d</span> <span class="t-flag">-p</span> <span class="t-str">3000:8080</span> <span class="t-flag">--add-host</span>=host.docker.internal:host-gateway <span class="t-flag">-v</span> open-webui:/app/backend/data <span class="t-flag">--name</span> open-webui <span class="t-str">ghcr.io/open-webui/open-webui:main</span>
+<span class="t-success">✔ 访问 http://localhost:3000 即可使用</span>
+<span class="t-comment"># 或者用 pip 安装（无需 Docker）</span>
+<span class="t-prompt">$ </span><span class="t-cmd">pip install open-webui</span>
+<span class="t-prompt">$ </span><span class="t-cmd">open-webui serve</span></div></div>
+
+    <div class="callout" style="margin-top:14px">
+      <div class="callout-title">✅ Open WebUI 功能亮点</div>
+      多模型切换 · 对话历史 · 文件上传（RAG）· 图像理解 · 语音输入 · 用户管理 · 提示词库 · 完全本地，数据不出机器
+    </div>
+
+    <div class="callout tip" style="margin-top:10px">
+      <div class="callout-title">📌 Python API 调用示例</div>
+    </div>
+    <div class="terminal" style="margin-top:6px">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+        <span class="term-label">python — OpenAI 兼容调用</span>
+      </div>
+      <div class="term-body">
+<span class="t-kw">from</span> openai <span class="t-kw">import</span> OpenAI
+
+client = OpenAI(
+    base_url=<span class="t-str">"http://localhost:11434/v1"</span>,
+    api_key=<span class="t-str">"ollama"</span>
+)
+response = client.chat.completions.create(
+    model=<span class="t-str">"qwen2.5:7b"</span>,
+    messages=[{<span class="t-str">"role"</span>: <span class="t-str">"user"</span>, <span class="t-str">"content"</span>: <span class="t-str">"用 Python 写快速排序"</span>}]
+)
+<span class="t-kw">print</span>(response.choices[0].message.content)</div></div>
+  </div>
+</div>
+
+<!-- ═══ MODULE 06 ═══ -->
+<!-- ── S20 章节过渡 ── -->
+<div class="slide centered" data-title="§6 进阶专题与经验分享">
+  <div class="slide-inner">
+    <div class="chapter-num-big">06</div>
+    <div class="chapter-title-big">进阶专题与经验分享</div>
+    <div class="chapter-desc">RAG 知识库、速度调优、踩坑总结<br>从能用到好用</div>
+  </div>
+</div>
+
+<!-- ── S21 RAG 知识库 ── -->
+<div class="slide" data-title="本地 RAG 知识库搭建">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 06 · 01</div>
+    <div class="slide-title">本地 RAG 知识库搭建</div>
+    <div class="slide-desc">让本地模型"读懂"你的私有文件</div>
+
+    <div class="workflow" style="margin-bottom:16px">
+      <div class="workflow-step">
+        <div class="wf-num">1</div>
+        <div class="wf-content">
+          <div class="wf-title">文档解析</div>
+          <div class="wf-desc">PDF / Word / Markdown 切块（Chunk），每块约 512 Token</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">2</div>
+        <div class="wf-content">
+          <div class="wf-title">向量化（Embedding）</div>
+          <div class="wf-desc">用本地向量模型（如 <code>nomic-embed-text</code>）将文本转为向量，存入向量数据库</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">3</div>
+        <div class="wf-content">
+          <div class="wf-title">相似度检索</div>
+          <div class="wf-desc">用户提问时，检索最相关的文本块（Top-K）</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="wf-num">4</div>
+        <div class="wf-content">
+          <div class="wf-title">增强生成</div>
+          <div class="wf-desc">将检索到的内容塞入 Prompt，让 LLM 基于原文回答，减少幻觉</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🛠️ 推荐工具组合</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.9">
+          <span class="tag tag-teal">AnythingLLM</span> 全功能本地 RAG，配置简单<br>
+          <span class="tag tag-blue">Open WebUI</span> 内置文档上传 RAG<br>
+          <span class="tag tag-purple">Dify</span> 企业级工作流，功能最强<br>
+          <span class="tag tag-green">LangChain / LlamaIndex</span> 开发者自建
+        </div>
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">📌 向量数据库选择</div>
+        轻量本地：<code>Chroma</code> / <code>FAISS</code><br>
+        持久化服务：<code>Qdrant</code> / <code>Milvus</code><br>
+        <br>
+        向量模型推荐：<code>nomic-embed-text</code>（通用）、<code>bge-m3</code>（中文优秀）
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S22 性能调优 ── -->
+<div class="slide" data-title="性能调优指南">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 06 · 02</div>
+    <div class="slide-title">性能调优：让模型跑得更快</div>
+    <div class="slide-desc">影响推理速度的关键参数与实战技巧</div>
+
+    <table class="data-table" style="margin-bottom:16px">
+      <tr><th>参数</th><th>含义</th><th>建议值</th><th>影响</th></tr>
+      <tr><td><code>num_gpu</code> / <code>-ngl</code></td><td>卸载到 GPU 的层数</td><td>尽量最大</td><td>↑↑↑ 速度</td></tr>
+      <tr><td><code>context_length</code></td><td>上下文窗口大小</td><td>4096~8192</td><td>越长越慢</td></tr>
+      <tr><td><code>num_thread</code></td><td>CPU 线程数（CPU Offload 时）</td><td>物理核心数</td><td>CPU 推理速度</td></tr>
+      <tr><td><code>batch_size</code></td><td>并发处理批次</td><td>512（默认）</td><td>多用户并发</td></tr>
+      <tr><td><code>flash_attention</code></td><td>FlashAttention 加速</td><td>开启</td><td>↑ 速度 ↓ 显存</td></tr>
+    </table>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot term-dot-r"></div><div class="term-dot term-dot-y"></div><div class="term-dot term-dot-g"></div>
+        <span class="term-label">bash — Ollama 参数调优</span>
+      </div>
+      <div class="term-body">
+<span class="t-comment"># 通过 Modelfile 自定义参数</span>
+<span class="t-highlight">FROM</span> <span class="t-str">qwen2.5:14b</span>
+<span class="t-highlight">PARAMETER</span> num_ctx 8192
+<span class="t-highlight">PARAMETER</span> num_gpu 48
+<span class="t-highlight">PARAMETER</span> temperature 0.7
+<span class="t-highlight">SYSTEM</span> <span class="t-str">"你是一个专业的技术助手，请用简洁准确的中文回答。"</span>
+
+<span class="t-prompt">$ </span><span class="t-cmd">ollama create mymodel</span> <span class="t-flag">-f</span> Modelfile
+<span class="t-prompt">$ </span><span class="t-cmd">ollama run mymodel</span></div></div>
+  </div>
+</div>
+
+<!-- ── S23 踩坑总结 ── -->
+<div class="slide" data-title="常见问题与踩坑汇总">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 06 · 03</div>
+    <div class="slide-title">常见问题与踩坑汇总</div>
+    <div class="slide-desc">前人踩过的坑，让你少走弯路</div>
+
+    <div class="callout warn" style="margin-bottom:10px">
+      <div class="callout-title">🚨 CUDA out of memory</div>
+      显存不足最常见报错。解决：①换更小量化版本（Q4 → Q2）②降低 <code>context_length</code> ③开启 CPU Offload（<code>-ngl</code> 减小层数）④关闭其他 GPU 应用
+    </div>
+
+    <div class="callout warn" style="margin-bottom:10px">
+      <div class="callout-title">🚨 模型输出乱码 / 重复</div>
+      通常是 ①Temperature 设置过高（调低到 0.6~0.8）②模型格式与框架不匹配 ③使用了错误的聊天模板（Chat Template）
+    </div>
+
+    <div class="callout warn" style="margin-bottom:10px">
+      <div class="callout-title">🚨 速度极慢（&lt;1 tok/s）</div>
+      模型在 CPU 上运行而非 GPU。检查：<code>nvidia-smi</code> 推理时 GPU 利用率是否 &gt;0，<code>-ngl</code> 参数是否正确设置
+    </div>
+
+    <div class="callout warn" style="margin-bottom:10px">
+      <div class="callout-title">🚨 连接断开 / 超时</div>
+      长上下文或大模型推理时间过长触发超时。增大客户端 timeout 设置；或缩短上下文 / 使用更小模型
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">📌 日常运维小技巧</div>
+      用 <code>ollama ps</code> 查看正在运行的模型 · <code>ollama stop &lt;model&gt;</code> 释放显存 · 多个模型不要同时加载 · 推理完立刻关闭不用的服务
+    </div>
+  </div>
+</div>
+
+<!-- ── S24 微调入门 ── -->
+<div class="slide" data-title="微调入门：LoRA / QLoRA">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 06 · 04</div>
+    <div class="slide-title">微调入门：LoRA / QLoRA</div>
+    <div class="slide-desc">在消费级 GPU 上定制专属模型</div>
+
+    <div class="two-col" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">🔧 什么是微调？</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          在预训练模型基础上，用少量特定数据继续训练，让模型在特定领域表现更好。<br><br>
+          全量微调需要与预训练相当的资源——消费级 GPU 不现实。
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💡 LoRA / QLoRA 方案</div>
+        <div class="card-desc" style="margin-top:8px;line-height:1.8">
+          <strong>LoRA</strong>：只训练少量"适配器"矩阵，参数量仅占全量的 0.1%~1%<br>
+          <strong>QLoRA</strong>：基础模型量化为 4bit，再套 LoRA，显存需求大幅降低<br><br>
+          <span class="tag tag-green">24GB GPU 可微调 7B</span>
+        </div>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <tr><th>微调工具</th><th>特点</th><th>适用场景</th></tr>
+      <tr><td><code>LLaMA-Factory</code></td><td>Web UI + 命令行，中文支持好</td><td>✅ 入门首选</td></tr>
+      <tr><td><code>Unsloth</code></td><td>速度最快（2x），显存最省</td><td>消费级 GPU</td></tr>
+      <tr><td><code>axolotl</code></td><td>配置灵活，功能全面</td><td>高级定制</td></tr>
+      <tr><td><code>Swift (ModelScope)</code></td><td>阿里出品，Qwen 系列支持最好</td><td>国内生态</td></tr>
+    </table>
+
+    <div class="callout" style="margin-top:12px">
+      <div class="callout-title">📌 最小数据集建议</div>
+      高质量指令数据 500~2000 条即可看到效果。数据质量 &gt;&gt; 数据数量。
+    </div>
+  </div>
+</div>
+
+<!-- ── S25 资源推荐 ── -->
+<div class="slide" data-title="学习资源与社区">
+  <div class="slide-inner">
+    <div class="chapter-num-label">MODULE 06 · 05</div>
+    <div class="slide-title">学习资源与社区</div>
+    <div class="slide-desc">持续学习的路径与高质量信息源</div>
+
+    <div class="two-col" style="margin-bottom:16px">
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">📚 模型资源</div>
+          <div class="card-desc" style="margin-top:8px;line-height:2">
+            <span class="tag tag-blue">HuggingFace</span> 全球模型库<br>
+            <span class="tag tag-blue">ModelScope</span> 国内首选<br>
+            <span class="tag tag-teal">Ollama Library</span> 预打包模型<br>
+            <span class="tag tag-green">Open LLM Leaderboard</span> 权威排名
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🛠️ 必备工具</div>
+          <div class="card-desc" style="margin-top:8px;line-height:2">
+            <span class="tag tag-orange">Ollama</span> 本地部署<br>
+            <span class="tag tag-orange">Open WebUI</span> 对话界面<br>
+            <span class="tag tag-orange">AnythingLLM</span> RAG 知识库<br>
+            <span class="tag tag-orange">LLaMA-Factory</span> 微调训练
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">🌐 社区与论坛</div>
+          <div class="card-desc" style="margin-top:8px;line-height:2">
+            <span class="tag tag-purple">Reddit r/LocalLLaMA</span> 英文社区<br>
+            <span class="tag tag-purple">知乎 #本地部署</span> 中文讨论<br>
+            <span class="tag tag-purple">GitHub Discussions</span> 各项目官方<br>
+            <span class="tag tag-purple">Discord Ollama</span> 实时答疑
+          </div>
+        </div>
+        <div class="callout tip">
+          <div class="callout-title">📌 保持更新的方法</div>
+          关注 <code>LLM News</code> Newsletter；订阅主流项目 GitHub Release；加入 Ollama / Open WebUI 官方 Discord，第一时间获取新模型资讯
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── S26 结束页 ── -->
+<div class="slide centered" data-title="课程总结">
+  <div class="slide-inner">
+    <div class="end-icon">🚀</div>
+    <div class="end-title">开始你的本地 LLM 之旅</div>
+    <div class="end-sub">数据留在本地，智能唾手可得<br>第一步：<code>ollama run gemma4:e2b</code></div>
+    <div class="btn-group">
+      <a class="btn primary" href="https://ollama.com" target="_blank">Ollama 官网</a>
+      <a class="btn" href="https://github.com/open-webui/open-webui" target="_blank">Open WebUI</a>
+      <a class="btn" href="https://hf-mirror.com" target="_blank">HF 镜像站</a>
+      <a class="btn" href="https://modelscope.cn" target="_blank">ModelScope</a>
+    </div>
+    <div style="margin-top:36px;font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace;font-size:11px;color:var(--text-dim)">
+      本地 LLM 部署培训 · 2025 · 消费级 GPU 场景
+    </div>
+  </div>
+</div>
+
+</div><!-- /slides-container -->
+
+<script>
+// ── 状态 ──
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = 0;
+let busy = false;
+let theme = localStorage.getItem('slide-theme') || 'dark';
+
+// ── 主题 ──
+function applyTheme(t, animate) {
+  if (!animate) document.documentElement.classList.add('no-transition');
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'DARK' : 'LIGHT';
+  localStorage.setItem('slide-theme', t);
+  if (!animate) {
+    document.documentElement.getBoundingClientRect();
+    document.documentElement.classList.remove('no-transition');
+  }
+}
+function toggleTheme() {
+  theme = theme === 'dark' ? 'light' : 'dark';
+  applyTheme(theme, true);
+  showToast(theme === 'light' ? '☀️ 亮色模式' : '🌙 暗色模式');
+}
+applyTheme(theme, false);
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ── 目录 ──
+const sidebar = document.getElementById('sidebar');
+slides.forEach((s, i) => {
+  const item = document.createElement('div');
+  item.className = 'sidebar-item';
+  item.textContent = (i === 0 ? '' : i + '. ') + (s.dataset.title || '');
+  item.onclick = () => { goTo(i); toggleSidebar(false); };
+  sidebar.appendChild(item);
+});
+function toggleSidebar(force) {
+  const open = force !== undefined ? force : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', open);
+}
+document.addEventListener('click', e => {
+  if (sidebar.classList.contains('open') &&
+      !sidebar.contains(e.target) &&
+      !document.getElementById('menu-btn').contains(e.target)) {
+    toggleSidebar(false);
+  }
+});
+
+// ── 更新 UI ──
+function updateUI() {
+  document.getElementById('progress').style.width = (current / (total - 1) * 100) + '%';
+  document.getElementById('page-indicator').textContent = (current + 1) + ' / ' + total;
+  document.getElementById('btn-first').disabled = current === 0;
+  document.getElementById('btn-prev').disabled = current === 0;
+  document.getElementById('btn-next').disabled = current === total - 1;
+  document.getElementById('btn-last').disabled = current === total - 1;
+  document.querySelectorAll('.sidebar-item').forEach((el, i) => {
+    el.classList.toggle('active', i === current);
+  });
+}
+
+// ── 翻页引擎 ──
+function goTo(n) {
+  if (busy || n === current || n < 0 || n >= total) return;
+  busy = true;
+  const from = slides[current];
+  const to = slides[n];
+  from.classList.add('exit-up');
+  to.classList.add('enter-from-below');
+  to.getBoundingClientRect();
+  to.classList.remove('enter-from-below');
+  to.classList.add('active');
+  from.classList.remove('active');
+  const inner = to.querySelector('.slide-inner');
+  if (inner) inner.scrollTop = 0;
+  current = n;
+  updateUI();
+  setTimeout(() => {
+    from.classList.remove('exit-up');
+    busy = false;
+  }, 420);
+}
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+// ── 键盘 ──
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const inner = slides[current].querySelector('.slide-inner');
+  switch (e.key) {
+    case 'ArrowRight': case ' ': e.preventDefault(); next(); break;
+    case 'ArrowLeft': e.preventDefault(); prev(); break;
+    case 'ArrowDown':
+      if (inner && inner.scrollHeight > inner.clientHeight &&
+          inner.scrollTop < inner.scrollHeight - inner.clientHeight - 2) {
+        inner.scrollBy({top: 80, behavior: 'smooth'});
+      } else { next(); }
+      break;
+    case 'ArrowUp':
+      if (inner && inner.scrollTop > 2) {
+        inner.scrollBy({top: -80, behavior: 'smooth'});
+      } else { prev(); }
+      break;
+    case 'PageDown': e.preventDefault(); next(); break;
+    case 'PageUp': e.preventDefault(); prev(); break;
+    case 'Home': e.preventDefault(); goTo(0); showToast('⏮ 第一页'); break;
+    case 'End': e.preventDefault(); goTo(total-1); showToast('⏭ 最后一页'); break;
+    case 'g': case 'G': {
+      const p = parseInt(prompt(`跳转到第几页？(1-${total})`), 10);
+      if (p >= 1 && p <= total) { goTo(p-1); showToast(`跳转到第 ${p} 页`); }
+      break;
+    }
+    case 'm': case 'M': toggleSidebar(); break;
+    case 't': case 'T': toggleTheme(); break;
+    case 'f': case 'F':
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+      break;
+    case 'Escape': toggleSidebar(false); break;
+  }
+});
+
+// ── 触控 ──
+let tx = 0, ty = 0;
+document.addEventListener('touchstart', e => {
+  tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+}, {passive: true});
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (dx < 0) next(); else prev();
+  }
+}, {passive: true});
+
+// ── 初始化 ──
+updateUI();
+</script>
+</body>
+</html>
