@@ -147,6 +147,36 @@ html, body {
 }
 #toast.show { transform: translate(-50%, 0); }
 
+/* ── 跳转模态框 ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.show { opacity: 1; pointer-events: all; }
+.modal-content {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px 28px;
+  text-align: center;
+}
+.modal-title {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 13px; color: var(--accent); letter-spacing: .1em; margin-bottom: 14px;
+}
+.modal-input {
+  width: 80px; padding: 8px 12px; font-size: 18px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); text-align: center;
+  outline: none; font-family: 'SiteFontMono', 'Fira Code', monospace;
+}
+.modal-input:focus { border-color: var(--accent); }
+.modal-hint {
+  font-family: 'SiteFontMono', 'Fira Code', 'LXGW WenKai', monospace;
+  font-size: 11px; color: var(--text-dim); margin-top: 10px;
+}
+
 /* ── 底部导航 ── */
 #nav {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
@@ -488,6 +518,15 @@ html, body, .slide-inner, .slide {
 
 <!-- Toast -->
 <div id="toast"></div>
+
+<!-- 跳转模态框 -->
+<div id="goto-modal" class="modal-overlay" onclick="if(event.target===this)closeGotoModal()">
+  <div class="modal-content">
+    <div class="modal-title">跳转到页面</div>
+    <input type="number" id="goto-input" class="modal-input" min="1" placeholder="1" onkeydown="if(event.key==='Enter')submitGoto();if(event.key==='Escape')closeGotoModal();">
+    <div class="modal-hint">共 <span id="goto-total"></span> 页，按 Enter 确认</div>
+  </div>
+</div>
 
 <!-- 快捷键提示 -->
 <div id="shortcuts">
@@ -1705,6 +1744,28 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
+function openGotoModal() {
+  const modal = document.getElementById('goto-modal');
+  document.getElementById('goto-total').textContent = total;
+  modal.classList.add('show');
+  const input = document.getElementById('goto-input');
+  input.value = '';
+  input.focus();
+}
+function closeGotoModal() {
+  document.getElementById('goto-input').blur();
+  document.getElementById('goto-modal').classList.remove('show');
+}
+function submitGoto() {
+  const input = document.getElementById('goto-input');
+  const p = parseInt(input.value, 10);
+  if (p >= 1 && p <= total) {
+    goTo(p - 1);
+    showToast(`跳转到第 ${p} 页`);
+  }
+  closeGotoModal();
+}
+
 // ── 目录 ──
 const sidebar = document.getElementById('sidebar');
 slides.forEach((s, i) => {
@@ -1766,6 +1827,7 @@ function prev() { goTo(current - 1); }
 // ── 键盘 ──
 document.addEventListener('keydown', e => {
   if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  if (document.getElementById('goto-modal').classList.contains('show')) return;
   const inner = slides[current].querySelector('.slide-inner');
   switch (e.key) {
     case 'ArrowRight': case ' ': e.preventDefault(); next(); break;
@@ -1785,18 +1847,20 @@ document.addEventListener('keydown', e => {
     case 'PageUp': e.preventDefault(); prev(); break;
     case 'Home': e.preventDefault(); goTo(0); showToast('⏮ 第一页'); break;
     case 'End': e.preventDefault(); goTo(total-1); showToast('⏭ 最后一页'); break;
-    case 'g': case 'G': {
-      const p = parseInt(prompt(`跳转到第几页？(1-${total})`), 10);
-      if (p >= 1 && p <= total) { goTo(p-1); showToast(`跳转到第 ${p} 页`); }
-      break;
-    }
+    case 'g': case 'G': openGotoModal(); break;
     case 'm': case 'M': toggleSidebar(); break;
     case 't': case 'T': toggleTheme(); break;
     case 'f': case 'F':
       if (!document.fullscreenElement) document.documentElement.requestFullscreen();
       else document.exitFullscreen();
       break;
-    case 'Escape': toggleSidebar(false); break;
+    case 'Escape': 
+      if (document.getElementById('goto-modal').classList.contains('show')) {
+        closeGotoModal();
+      } else {
+        toggleSidebar(false);
+      }
+      break;
   }
 });
 
