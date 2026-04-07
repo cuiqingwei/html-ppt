@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LM Studio 使用技巧培训</title>
+<link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.6.0/style.css">
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/firacode/6.2.0/fira_code.min.css">
+<style>
+@font-face {
+  font-family: 'SiteFontMono';
+  src: local('Fira Code');
+  font-weight: 100 900;
+  unicode-range: U+0020-007E,U+00A0-02FF,U+0300-036F,U+0370-03FF,U+0400-04FF,U+2000-206F,U+2070-209F,U+20A0-20CF,U+2100-214F,U+2150-218F,U+2190-21FF,U+2200-22FF,U+2300-23FF,U+2400-243F,U+25A0-25FF,U+2600-26FF,U+FB00-FB06,U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'SiteFontMono';
+  src: local('LXGW WenKai');
+  font-weight: 100 900;
+  unicode-range: U+2E80-2EFF,U+2F00-2FDF,U+3000-303F,U+3040-309F,U+30A0-30FF,U+3100-312F,U+3130-318F,U+3190-31EF,U+31F0-31FF,U+3200-33FF,U+3400-4DBF,U+4E00-9FFF,U+A000-A4CF,U+A960-A97F,U+AC00-D7FF,U+F900-FAFF,U+FE10-FE6F,U+FF00-FFEF,U+20000-2A6DF,U+2A700-2CEAF;
+}
+:root {
+  --accent:#00d4aa; --accent2:#ff6b35; --accent3:#7c5cfc;
+  --green:#4ade80; --red:#f87171; --blue:#60a5fa; --pink:#f472b6;
+}
+[data-theme="dark"] {
+  --bg:#0d0f14; --bg2:#13161d; --bg3:#1a1e28; --panel:#1e2330;
+  --border:#2a3045; --text:#e2e8f4; --text-dim:#8892a4; --text-bright:#ffffff;
+  --term-bg:#0a0c10; --term-comment:#3d4f66; --term-out:#4a6278;
+  --grid-color:rgba(0,212,170,.022); --nav-bg:rgba(13,15,20,.88);
+  --kbd-bg:#1a1e28; --yellow-display:#f0c040;
+  --mockup-bg:#0e1118; --mockup-sidebar:#111520; --mockup-item:#1a1e2e;
+}
+[data-theme="light"] {
+  --bg:#f4f6fb; --bg2:#eaecf4; --bg3:#dde1ee; --panel:#ffffff;
+  --border:#c8cfe0; --text:#2a3050; --text-dim:#6b7599; --text-bright:#0d1020;
+  --term-bg:#1a1d28; --term-comment:#5a7a96; --term-out:#7a98b0;
+  --grid-color:rgba(0,140,110,.04); --nav-bg:rgba(244,246,251,.92);
+  --kbd-bg:#eaecf4; --yellow-display:#b07800;
+  --mockup-bg:#0e1118; --mockup-sidebar:#111520; --mockup-item:#1a1e2e;
+}
+.no-transition * { transition: none !important; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:var(--bg); color:var(--text);
+  font-family:'LXGW WenKai',serif;
+  transition:background .35s ease,color .35s ease,border-color .35s ease;
+}
+html,body,.slide-inner,.slide { font-family:'LXGW WenKai',serif; }
+.grid-bg {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:linear-gradient(var(--grid-color) 1px,transparent 1px),linear-gradient(90deg,var(--grid-color) 1px,transparent 1px);
+  background-size:44px 44px;
+}
+#progress-bar {
+  position:fixed; top:0; left:0; height:3px; z-index:1000;
+  background:linear-gradient(90deg,var(--accent),var(--accent3));
+  box-shadow:0 0 8px var(--accent); transition:width .35s ease;
+}
+#slides { position:fixed; inset:0; z-index:1; }
+.slide {
+  position:absolute; inset:0;
+  opacity:0; pointer-events:none; transform:translateY(36px);
+  transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.4,0,.2,1);
+}
+.slide.active { opacity:1; pointer-events:all; transform:translateY(0); }
+.slide.exit-up { opacity:0; transform:translateY(-36px); transition:opacity .3s ease,transform .3s ease; }
+.slide.enter-from-below { opacity:0; transform:translateY(56px); transition:none; }
+.slide-inner { width:100%; height:100%; padding:72px 80px 100px; }
+.slide-inner.centered {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; overflow:visible;
+}
+.slide-inner.scrollable {
+  height:calc(100vh - 136px); margin-top:68px;
+  overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+  padding:0 80px 40px;
+}
+/* cover */
+.cover-badge { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; letter-spacing:.2em; color:var(--accent); border:1px solid var(--accent); border-radius:20px; padding:4px 14px; margin-bottom:28px; display:inline-block; }
+.cover-title { font-size:clamp(2.4rem,5vw,4rem); font-weight:700; color:var(--text-bright); line-height:1.15; margin-bottom:18px; }
+.cover-title span { color:var(--accent); }
+.cover-sub { font-size:1.15rem; color:var(--text-dim); margin-bottom:40px; }
+.cover-meta { display:flex; gap:28px; flex-wrap:wrap; justify-content:center; }
+.meta-item { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:12px; color:var(--text-dim); border:1px solid var(--border); border-radius:6px; padding:6px 16px; }
+.meta-item span { color:var(--accent); }
+/* outline */
+.outline-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:32px; }
+.outline-card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:20px 22px; cursor:pointer; transition:transform .2s,box-shadow .2s; position:relative; overflow:hidden; }
+.outline-card::before { content:''; position:absolute; top:0; left:0; right:0; height:0; background:var(--accent); transition:height .2s; }
+.outline-card:hover::before { height:2px; }
+.outline-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.2); }
+.outline-num { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; color:var(--accent); margin-bottom:8px; }
+.outline-title { font-size:1rem; color:var(--text-bright); font-weight:600; margin-bottom:6px; }
+.outline-desc { font-size:.87rem; color:var(--text-dim); }
+/* chapter */
+.chapter-num-big { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:clamp(5rem,14vw,10rem); font-weight:700; line-height:1; color:transparent; -webkit-text-stroke:2px var(--border); margin-bottom:16px; }
+.chapter-label { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; letter-spacing:.2em; color:var(--accent); margin-bottom:12px; }
+.chapter-title { font-size:clamp(1.6rem,3.5vw,2.4rem); font-weight:700; color:var(--text-bright); margin-bottom:14px; }
+.chapter-desc { font-size:1rem; color:var(--text-dim); max-width:560px; }
+/* page */
+.page-chapter-tag { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; letter-spacing:.15em; color:var(--accent); margin-bottom:10px; }
+.page-title { font-size:clamp(1.5rem,3vw,2.1rem); font-weight:700; color:var(--text-bright); margin-bottom:8px; }
+.page-desc { font-size:.95rem; color:var(--text-dim); margin-bottom:28px; }
+.section-divider { height:1px; background:var(--border); margin:20px 0; }
+.section-title { font-size:1.8rem; font-weight:700; color:var(--text-bright); margin-bottom:6px; }
+.section-sub { font-size:.95rem; color:var(--text-dim); margin-bottom:4px; }
+/* card */
+.card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:18px 20px; margin-bottom:14px; position:relative; overflow:hidden; transition:transform .2s,box-shadow .2s; }
+.card::before { content:''; position:absolute; top:0; left:0; right:0; height:0; background:var(--accent); transition:height .2s; }
+.card:hover::before { height:2px; }
+.card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.15); }
+.card-title { font-size:.98rem; font-weight:600; color:var(--text-bright); margin-bottom:7px; }
+.card-body { font-size:.88rem; color:var(--text-dim); line-height:1.65; }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+/* terminal */
+.terminal { background:var(--term-bg); border-radius:10px; overflow:hidden; margin-bottom:16px; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.82rem; line-height:1.7; }
+.term-bar { background:#1c1f2e; padding:9px 14px; display:flex; align-items:center; gap:8px; }
+.term-dots { display:flex; gap:6px; }
+.term-dot { width:11px; height:11px; border-radius:50%; }
+.term-dot.red { background:#ff5f56; }
+.term-dot.yellow { background:#ffbd2e; }
+.term-dot.green { background:#27c93f; }
+.term-label { font-size:11px; color:#5a6478; margin-left:8px; letter-spacing:.05em; }
+.term-body { padding:14px 20px; }
+.t-prompt { color:var(--accent); } .t-cmd { color:#e2e8f4; } .t-comment { color:var(--term-comment); font-style:italic; }
+.t-out { color:var(--term-out); } .t-kw { color:var(--blue); } .t-str { color:var(--green); }
+.t-flag { color:var(--pink); } .t-success { color:var(--green); } .t-highlight { color:var(--yellow-display); }
+/* callout */
+.callout { border-radius:8px; padding:12px 16px; margin-bottom:14px; border-left:3px solid; font-size:.88rem; line-height:1.65; }
+.callout.info { border-color:var(--accent); background:rgba(0,212,170,.07); }
+.callout.warn { border-color:var(--accent2); background:rgba(255,107,53,.07); }
+.callout.tip { border-color:var(--accent3); background:rgba(124,92,252,.07); }
+.callout-head { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; letter-spacing:.1em; margin-bottom:5px; font-weight:700; }
+.callout.info .callout-head { color:var(--accent); }
+.callout.warn .callout-head { color:var(--accent2); }
+.callout.tip .callout-head { color:var(--accent3); }
+/* workflow */
+.workflow { margin:8px 0 16px; }
+.workflow-step { display:flex; gap:18px; align-items:flex-start; margin-bottom:20px; position:relative; }
+.workflow-step:not(:last-child)::after { content:''; position:absolute; left:17px; top:40px; width:2px; height:calc(100% + 2px); background:var(--border); }
+.step-num { width:34px; height:34px; border-radius:50%; flex-shrink:0; background:var(--accent); color:#000; display:flex; align-items:center; justify-content:center; font-family:'SiteFontMono','Fira Code',monospace; font-size:.8rem; font-weight:700; z-index:1; }
+.step-body { flex:1; padding-top:4px; }
+.step-title { font-size:.98rem; font-weight:600; color:var(--text-bright); margin-bottom:4px; }
+.step-desc { font-size:.87rem; color:var(--text-dim); line-height:1.6; }
+/* tag */
+.tag { display:inline-block; font-size:.75rem; border-radius:4px; padding:2px 9px; margin:2px; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; }
+.tag.green { background:rgba(74,222,128,.12); color:var(--green); border:1px solid rgba(74,222,128,.25); }
+.tag.blue { background:rgba(96,165,250,.12); color:var(--blue); border:1px solid rgba(96,165,250,.25); }
+.tag.purple { background:rgba(124,92,252,.12); color:var(--accent3); border:1px solid rgba(124,92,252,.25); }
+.tag.orange { background:rgba(255,107,53,.12); color:var(--accent2); border:1px solid rgba(255,107,53,.25); }
+/* kbd */
+.kbd { display:inline-block; background:var(--kbd-bg); color:var(--yellow-display); border:1px solid var(--border); border-bottom-width:3px; border-radius:5px; padding:1px 8px; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.78rem; margin:0 2px; }
+/* key-table */
+.key-table { width:100%; border-collapse:collapse; font-size:.87rem; }
+.key-table th { text-align:left; padding:8px 12px; border-bottom:2px solid var(--accent); color:var(--text-dim); font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.78rem; font-weight:600; }
+.key-table td { padding:9px 12px; border-bottom:1px solid var(--border); color:var(--text); }
+.key-table tr:hover td { background:var(--bg3); }
+/* compare-table */
+.compare-table { width:100%; border-collapse:collapse; font-size:.87rem; margin-top:8px; }
+.compare-table th { background:var(--bg3); padding:10px 14px; border:1px solid var(--border); color:var(--accent); font-weight:600; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.8rem; }
+.compare-table td { padding:9px 14px; border:1px solid var(--border); color:var(--text); }
+.compare-table tr:hover td { background:var(--bg3); }
+/* end */
+.end-icon { font-size:4rem; margin-bottom:20px; }
+.end-title { font-size:2rem; font-weight:700; color:var(--text-bright); margin-bottom:12px; }
+.end-sub { font-size:1rem; color:var(--text-dim); margin-bottom:36px; }
+.btn-group { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.btn { padding:10px 24px; border-radius:8px; border:none; font-size:.9rem; cursor:pointer; text-decoration:none; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; transition:opacity .2s,transform .2s; }
+.btn:hover { opacity:.85; transform:translateY(-2px); }
+.btn.primary { background:var(--accent); color:#000; font-weight:600; }
+.btn.secondary { background:var(--panel); color:var(--text); border:1px solid var(--border); }
+/* inline code */
+code { background:var(--bg3); color:var(--accent); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:.83em; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; }
+/* list */
+ul.styled-list { padding-left:1.2em; color:var(--text); }
+ul.styled-list li { margin-bottom:6px; font-size:.9rem; line-height:1.65; }
+ul.styled-list li strong { color:var(--text-bright); }
+
+/* ── UI Mockup styles ── */
+.mockup-wrap {
+  background:#0e1118;
+  border:1px solid #2a3045;
+  border-radius:12px;
+  overflow:hidden;
+  font-family:'SiteFontMono','Fira Code',monospace;
+  font-size:12px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  display:flex; flex-direction:column;
+}
+.mockup-titlebar {
+  background:#151820;
+  height:36px; display:flex; align-items:center; padding:0 14px; gap:8px;
+  border-bottom:1px solid #222640;
+  flex-shrink:0;
+}
+.mockup-titlebar .dots { display:flex; gap:5px; }
+.mockup-titlebar .dot { width:10px; height:10px; border-radius:50%; }
+.mockup-titlebar .dot.r { background:#ff5f56; }
+.mockup-titlebar .dot.y { background:#ffbd2e; }
+.mockup-titlebar .dot.g { background:#27c93f; }
+.mockup-titlebar .title-text { color:#5a6478; font-size:11px; margin-left:8px; flex:1; text-align:center; letter-spacing:.05em; }
+.mockup-body { display:flex; flex:1; overflow:hidden; }
+.mockup-sidebar {
+  width:52px; background:#111520;
+  border-right:1px solid #222640;
+  display:flex; flex-direction:column; align-items:center;
+  padding:12px 0; gap:4px; flex-shrink:0;
+}
+.mockup-nav-icon {
+  width:36px; height:36px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; cursor:pointer; color:#5a6478;
+  transition:background .15s,color .15s;
+}
+.mockup-nav-icon.active { background:#1a2035; color:#00d4aa; }
+.mockup-nav-icon:hover:not(.active) { background:#161b28; color:#8892a4; }
+.mockup-content { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+
+/* discover mockup */
+.mockup-search-bar {
+  background:#151820; border-bottom:1px solid #222640;
+  padding:10px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+}
+.mockup-search-input {
+  flex:1; background:#0d1018; border:1px solid #2a3045;
+  border-radius:6px; color:#8892a4; padding:5px 10px; font-size:12px;
+  font-family:'SiteFontMono','Fira Code',monospace;
+}
+.mockup-search-btn {
+  background:#00d4aa; color:#000; border:none; border-radius:6px;
+  padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer;
+  font-family:'SiteFontMono','Fira Code',monospace; letter-spacing:.05em;
+}
+.mockup-model-list { padding:10px 14px; overflow-y:auto; flex:1; }
+.mockup-model-item {
+  background:#141824; border:1px solid #222640; border-radius:8px;
+  padding:10px 12px; margin-bottom:8px; cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.mockup-model-item:hover { border-color:#00d4aa44; background:#161c2a; }
+.mockup-model-item.selected { border-color:#00d4aa; background:#0f1c20; }
+.mmi-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px; }
+.mmi-name { color:#e2e8f4; font-size:12px; font-weight:600; }
+.mmi-size { color:#8892a4; font-size:10px; }
+.mmi-tags { display:flex; gap:4px; margin-bottom:5px; }
+.mmi-tag { font-size:9px; padding:1px 6px; border-radius:3px; border:1px solid; font-family:'SiteFontMono','Fira Code',monospace; }
+.mmi-tag.g { color:#4ade80; border-color:rgba(74,222,128,.3); background:rgba(74,222,128,.08); }
+.mmi-tag.b { color:#60a5fa; border-color:rgba(96,165,250,.3); background:rgba(96,165,250,.08); }
+.mmi-tag.a { color:#00d4aa; border-color:rgba(0,212,170,.3); background:rgba(0,212,170,.08); }
+.mmi-progress-wrap { height:3px; background:#1a1e28; border-radius:2px; overflow:hidden; }
+.mmi-progress { height:100%; background:linear-gradient(90deg,#00d4aa,#7c5cfc); border-radius:2px; }
+.mmi-bottom { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+.mmi-compat { font-size:9px; }
+.mmi-compat.ok { color:#4ade80; }
+.mmi-compat.warn { color:#f0c040; }
+.mmi-dl-btn {
+  background:#00d4aa; color:#000; border:none; border-radius:5px;
+  font-size:9px; font-weight:700; padding:3px 10px; cursor:pointer;
+  font-family:'SiteFontMono','Fira Code',monospace;
+}
+.mmi-dl-btn.downloading { background:#1a2035; color:#00d4aa; border:1px solid #00d4aa44; }
+
+/* chat mockup */
+.mockup-chat-panel { display:flex; flex:1; overflow:hidden; }
+.mockup-chat-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.mockup-chat-topbar {
+  background:#151820; border-bottom:1px solid #222640;
+  padding:8px 14px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+.mockup-model-selector {
+  background:#0d1018; border:1px solid #2a3045; border-radius:6px;
+  color:#00d4aa; padding:4px 10px; font-size:11px;
+  font-family:'SiteFontMono','Fira Code',monospace;
+}
+.mockup-chat-msgs { flex:1; padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+.mockup-msg { max-width:85%; }
+.mockup-msg.user { align-self:flex-end; }
+.mockup-msg.user .msg-bubble { background:#1a2840; border:1px solid #1e3a5a; border-radius:12px 12px 2px 12px; color:#e2e8f4; padding:8px 12px; font-size:11px; line-height:1.5; }
+.mockup-msg.ai .msg-bubble { background:#141824; border:1px solid #222640; border-radius:2px 12px 12px 12px; color:#e2e8f4; padding:8px 12px; font-size:11px; line-height:1.5; }
+.msg-label { font-size:9px; color:#5a6478; margin-bottom:3px; font-family:'SiteFontMono','Fira Code',monospace; }
+.mockup-chat-input-area {
+  background:#151820; border-top:1px solid #222640;
+  padding:10px 14px; display:flex; gap:8px; flex-shrink:0;
+}
+.mockup-chat-input {
+  flex:1; background:#0d1018; border:1px solid #2a3045;
+  border-radius:8px; color:#8892a4; padding:7px 10px; font-size:11px;
+  font-family:'SiteFontMono','Fira Code',monospace;
+}
+.mockup-send-btn {
+  background:#00d4aa; color:#000; border:none; border-radius:8px;
+  width:34px; height:34px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.mockup-params-sidebar {
+  width:180px; background:#111520; border-left:1px solid #222640;
+  padding:12px; overflow-y:auto; flex-shrink:0;
+}
+.mparam-title { color:#5a6478; font-size:9px; letter-spacing:.1em; margin-bottom:10px; }
+.mparam-item { margin-bottom:12px; }
+.mparam-label { color:#8892a4; font-size:10px; margin-bottom:4px; display:flex; justify-content:space-between; }
+.mparam-label span { color:#00d4aa; }
+.mparam-slider { width:100%; height:3px; background:#1a1e28; border-radius:2px; appearance:none; outline:none; cursor:pointer; }
+.mparam-val { color:#e2e8f4; font-size:10px; background:#1a1e28; border:1px solid #2a3045; border-radius:4px; padding:2px 6px; text-align:center; margin-top:3px; }
+
+/* server mockup */
+.mockup-server-content { padding:16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+.mserver-status-bar {
+  background:#0f1c20; border:1px solid rgba(0,212,170,.2);
+  border-radius:8px; padding:12px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.mserver-dot { width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 6px #4ade80; margin-right:8px; flex-shrink:0; animation:blink 1.5s ease-in-out infinite; }
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+.mserver-label { color:#e2e8f4; font-size:12px; font-weight:600; display:flex; align-items:center; }
+.mserver-url { color:#00d4aa; font-size:11px; }
+.mserver-toggle {
+  background:#4ade80; color:#000; border:none; border-radius:6px;
+  padding:5px 14px; font-size:11px; font-weight:700; cursor:pointer;
+  font-family:'SiteFontMono','Fira Code',monospace;
+}
+.mserver-row { display:flex; justify-content:space-between; align-items:center; background:#141824; border:1px solid #222640; border-radius:6px; padding:8px 12px; }
+.mserver-row-label { color:#8892a4; font-size:11px; }
+.mserver-row-val { color:#e2e8f4; font-size:11px; font-family:'SiteFontMono','Fira Code',monospace; }
+.mserver-toggle-sm { width:32px; height:18px; border-radius:9px; background:#00d4aa; border:none; cursor:pointer; position:relative; }
+.mserver-toggle-sm::after { content:''; position:absolute; top:2px; right:3px; width:14px; height:14px; border-radius:50%; background:#fff; }
+.mserver-toggle-sm.off { background:#2a3045; }
+.mserver-toggle-sm.off::after { right:auto; left:3px; }
+.mserver-log { background:#0a0c10; border:1px solid #222640; border-radius:6px; padding:10px 12px; font-family:'SiteFontMono','Fira Code',monospace; font-size:10px; line-height:1.7; }
+
+/* LM Link mockup */
+.mlink-device { background:#141824; border:1px solid #222640; border-radius:8px; padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; }
+.mlink-device-icon { width:32px; height:32px; border-radius:8px; background:#1a2035; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.mlink-device-info { flex:1; }
+.mlink-device-name { color:#e2e8f4; font-size:11px; font-weight:600; margin-bottom:2px; }
+.mlink-device-meta { color:#5a6478; font-size:9px; }
+.mlink-device-status { font-size:9px; padding:2px 8px; border-radius:10px; font-family:'SiteFontMono','Fira Code',monospace; }
+.mlink-device-status.online { background:rgba(74,222,128,.1); color:#4ade80; border:1px solid rgba(74,222,128,.2); }
+.mlink-device-status.self { background:rgba(0,212,170,.1); color:#00d4aa; border:1px solid rgba(0,212,170,.2); }
+.mlink-enc-badge { background:rgba(124,92,252,.1); color:#7c5cfc; border:1px solid rgba(124,92,252,.2); border-radius:6px; padding:6px 12px; display:flex; align-items:center; gap:6px; font-size:10px; font-family:'SiteFontMono','Fira Code',monospace; }
+
+/* nav */
+#nav-bar {
+  position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; gap:4px;
+  background:var(--nav-bg); backdrop-filter:blur(14px);
+  border:1px solid var(--border); border-radius:50px;
+  padding:6px 10px; z-index:200;
+}
+.nav-btn { background:none; border:none; cursor:pointer; color:var(--text-dim); width:34px; height:34px; border-radius:50%; font-size:.9rem; display:flex; align-items:center; justify-content:center; transition:background .2s,color .2s; font-family:'SiteFontMono','Fira Code',monospace; }
+.nav-btn:hover:not(:disabled) { background:var(--bg3); color:var(--text); }
+.nav-btn:disabled { opacity:.3; cursor:not-allowed; }
+#page-counter { font-family:'SiteFontMono','Fira Code',monospace; font-size:.78rem; color:var(--text-dim); padding:0 10px; min-width:60px; text-align:center; }
+/* top controls */
+#top-controls { position:fixed; top:18px; right:22px; display:flex; align-items:center; gap:8px; z-index:300; }
+#theme-label { font-family:'SiteFontMono','Fira Code',monospace; font-size:10px; color:var(--text-dim); letter-spacing:.1em; }
+#theme-track { width:40px; height:22px; border-radius:11px; background:var(--bg3); border:1px solid var(--border); position:relative; cursor:pointer; transition:background .3s; }
+#theme-track::after { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:var(--text-dim); transition:transform .3s,background .3s; }
+[data-theme="light"] #theme-track { background:var(--accent); }
+[data-theme="light"] #theme-track::after { transform:translateX(18px); background:#fff; }
+#menu-btn { background:var(--panel); border:1px solid var(--border); color:var(--text-dim); border-radius:8px; padding:5px 12px; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.78rem; cursor:pointer; transition:background .2s,color .2s; }
+#menu-btn:hover { color:var(--text); background:var(--bg3); }
+/* sidebar */
+#sidebar { position:fixed; right:0; top:0; width:300px; height:100%; background:var(--panel); border-left:1px solid var(--border); transform:translateX(100%); transition:transform .3s ease; z-index:400; overflow-y:auto; padding:60px 0 20px; }
+#sidebar.open { transform:translateX(0); }
+.sidebar-item { padding:10px 24px; font-size:.88rem; color:var(--text-dim); cursor:pointer; transition:background .15s,color .15s; border-left:2px solid transparent; }
+.sidebar-item:hover { background:var(--bg3); color:var(--text); }
+.sidebar-item.active { color:var(--accent); border-left-color:var(--accent); background:var(--bg2); }
+#shortcuts { position:fixed; bottom:28px; right:22px; font-family:'SiteFontMono','Fira Code',monospace; font-size:9px; color:var(--text-dim); line-height:1.8; text-align:right; pointer-events:none; z-index:100; }
+#toast { position:fixed; top:22px; left:50%; transform:translate(-50%,-70px); background:var(--panel); border:1px solid var(--border); border-radius:30px; padding:8px 20px; font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:.82rem; color:var(--text); z-index:500; transition:transform .25s ease; white-space:nowrap; }
+#toast.show { transform:translate(-50%,0); }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:500; opacity:0; pointer-events:none; transition:opacity .2s; }
+.modal-overlay.show { opacity:1; pointer-events:all; }
+.modal-content { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px 28px; text-align:center; }
+.modal-title { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:13px; color:var(--accent); letter-spacing:.1em; margin-bottom:14px; }
+.modal-input { width:80px; padding:8px 12px; font-size:18px; background:var(--bg3); border:1px solid var(--border); border-radius:6px; color:var(--text); text-align:center; outline:none; font-family:'SiteFontMono','Fira Code',monospace; }
+.modal-input:focus { border-color:var(--accent); }
+.modal-hint { font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace; font-size:11px; color:var(--text-dim); margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="progress-bar"></div>
+
+<div id="slides">
+
+  <!-- ① 封面 -->
+  <div class="slide active" data-title="封面">
+    <div class="slide-inner centered">
+      <div class="cover-badge">TRAINING · 本地大模型</div>
+      <h1 class="cover-title">LM Studio<br><span>使用技巧培训</span></h1>
+      <p class="cover-sub">界面操作 · 模型管理 · 本地服务 · LM Link 远程推理</p>
+      <div class="cover-meta">
+        <div class="meta-item">难度 <span>⭐⭐ 入门</span></div>
+        <div class="meta-item">时长 <span>约 90 分钟</span></div>
+        <div class="meta-item">形式 <span>演示 + 实操</span></div>
+        <div class="meta-item">版本 <span>0.3.x / 2025</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 大纲 -->
+  <div class="slide" data-title="课程大纲">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">OVERVIEW</div>
+      <div class="section-title">课程大纲</div>
+      <div class="section-sub">六个模块，从界面认识到远程协作</div>
+      <div class="section-divider"></div>
+      <div class="outline-grid">
+        <div class="outline-card"><div class="outline-num">01</div><div class="outline-title">界面总览</div><div class="outline-desc">LM Studio 侧边栏导航、各功能区布局一览</div></div>
+        <div class="outline-card"><div class="outline-num">02</div><div class="outline-title">模型发现与下载</div><div class="outline-desc">Discover 标签、量化选择、兼容性提示、下载管理</div></div>
+        <div class="outline-card"><div class="outline-num">03</div><div class="outline-title">Chat 对话界面</div><div class="outline-desc">对话操作、System Prompt、参数调节侧边栏</div></div>
+        <div class="outline-card"><div class="outline-num">04</div><div class="outline-title">本地 Server 服务</div><div class="outline-desc">一键开启 OpenAI 兼容 API，CORS 与网络配置</div></div>
+        <div class="outline-card"><div class="outline-num">05</div><div class="outline-title">LM Link 远程模型</div><div class="outline-desc">端对端加密，跨设备共享算力，免公网暴露</div></div>
+        <div class="outline-card"><div class="outline-num">06</div><div class="outline-title">高效技巧 & 排错</div><div class="outline-desc">快捷键、CLI、My Models 配置、常见问题</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 章节：界面总览 -->
+  <div class="slide" data-title="第一章：界面总览">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">01</div>
+      <div class="chapter-label">CHAPTER ONE</div>
+      <div class="chapter-title">界面总览</div>
+      <div class="chapter-desc">认识 LM Studio 的五个核心区域，理解整体工作流</div>
+    </div>
+  </div>
+
+  <!-- ④ 界面总览内容 -->
+  <div class="slide" data-title="GUI 界面布局">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 01 · 界面总览</div>
+      <div class="page-title">LM Studio GUI 布局一览</div>
+      <div class="page-desc">左侧导航栏是操作核心，五个图标对应五个功能区</div>
+
+      <!-- Mockup: 整体布局 -->
+      <div class="mockup-wrap" style="height:280px;margin-bottom:16px;">
+        <div class="mockup-titlebar">
+          <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+          <div class="title-text">LM Studio 0.3.x</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-icon" title="Chat">💬</div>
+            <div class="mockup-nav-icon active" title="Discover">🔍</div>
+            <div class="mockup-nav-icon" title="My Models">📦</div>
+            <div class="mockup-nav-icon" title="Local Server">↔️</div>
+            <div class="mockup-nav-icon" title="LM Link">🔗</div>
+            <div style="flex:1"></div>
+            <div class="mockup-nav-icon" title="Settings">⚙️</div>
+          </div>
+          <div class="mockup-content" style="padding:16px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+            <div style="color:#5a6478;font-size:10px;letter-spacing:.1em;margin-bottom:4px;">DISCOVER · 模型发现与下载</div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;background:#141824;border:1px solid #222640;border-radius:6px;padding:8px 10px;">
+                <div style="color:#00d4aa;font-size:10px;margin-bottom:4px;">🔍 搜索栏</div>
+                <div style="color:#5a6478;font-size:9px;">输入模型名 / HF URL / 关键词</div>
+              </div>
+              <div style="flex:1;background:#141824;border:1px solid #222640;border-radius:6px;padding:8px 10px;">
+                <div style="color:#60a5fa;font-size:10px;margin-bottom:4px;">📋 筛选面板</div>
+                <div style="color:#5a6478;font-size:9px;">按大小 / 量化 / 兼容性过滤</div>
+              </div>
+              <div style="flex:1;background:#141824;border:1px solid #222640;border-radius:6px;padding:8px 10px;">
+                <div style="color:#f472b6;font-size:10px;margin-bottom:4px;">📥 下载队列</div>
+                <div style="color:#5a6478;font-size:9px;">多模型并行下载、断点续传</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <span style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);color:#00d4aa;font-size:9px;border-radius:4px;padding:2px 8px;">💬 Chat</span>
+              <span style="background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.4);color:#00d4aa;font-size:9px;border-radius:4px;padding:2px 8px;font-weight:700;">🔍 Discover ←当前</span>
+              <span style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);color:#00d4aa;font-size:9px;border-radius:4px;padding:2px 8px;">📦 My Models</span>
+              <span style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);color:#00d4aa;font-size:9px;border-radius:4px;padding:2px 8px;">↔️ Server</span>
+              <span style="background:rgba(124,92,252,.1);border:1px solid rgba(124,92,252,.3);color:#7c5cfc;font-size:9px;border-radius:4px;padding:2px 8px;">🔗 LM Link</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="three-col">
+        <div class="card"><div class="card-title">💬 Chat</div><div class="card-body">对话界面，支持多会话历史、System Prompt 设置与参数实时调节</div></div>
+        <div class="card"><div class="card-title">🔍 Discover</div><div class="card-body">连接 Hugging Face，搜索下载 GGUF / MLX 模型，自动推荐兼容版本</div></div>
+        <div class="card"><div class="card-title">📦 My Models</div><div class="card-body">管理本地已下载模型，设置默认参数、固定常用模型</div></div>
+      </div>
+      <div class="two-col" style="margin-top:0;">
+        <div class="card"><div class="card-title">↔️ Local Server</div><div class="card-body">一键开启 OpenAI 兼容 REST API，可配置 CORS、本地网络监听</div></div>
+        <div class="card"><div class="card-title">🔗 LM Link <span class="tag purple" style="font-size:9px;vertical-align:middle;">NEW</span></div><div class="card-body">加密 VPN 组网，远程设备的模型如本地一样调用，基于 Tailscale</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 章节：模型发现与下载 -->
+  <div class="slide" data-title="第二章：模型发现与下载">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">02</div>
+      <div class="chapter-label">CHAPTER TWO</div>
+      <div class="chapter-title">模型发现与下载</div>
+      <div class="chapter-desc">在 Discover 标签里找到并下载最适合你硬件的模型版本</div>
+    </div>
+  </div>
+
+  <!-- ⑥ Discover 界面详解 -->
+  <div class="slide" data-title="Discover 模型下载">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 02 · 模型发现与下载</div>
+      <div class="page-title">Discover 标签 · 操作详解</div>
+      <div class="page-desc">搜索 → 选量化版本 → 一键下载，支持多任务并行</div>
+
+      <!-- Mockup: Discover -->
+      <div class="mockup-wrap" style="height:310px;margin-bottom:16px;">
+        <div class="mockup-titlebar">
+          <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+          <div class="title-text">Discover · 模型搜索</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-icon">💬</div>
+            <div class="mockup-nav-icon active">🔍</div>
+            <div class="mockup-nav-icon">📦</div>
+            <div class="mockup-nav-icon">↔️</div>
+            <div class="mockup-nav-icon">🔗</div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-search-bar">
+              <div class="mockup-search-input">Qwen2.5</div>
+              <div class="mockup-search-btn">搜索</div>
+              <div style="color:#5a6478;font-size:10px;padding:0 4px;">GGUF ▾</div>
+            </div>
+            <div class="mockup-model-list">
+              <div class="mockup-model-item selected">
+                <div class="mmi-header">
+                  <div class="mmi-name">Qwen2.5-7B-Instruct · Q4_K_M</div>
+                  <div class="mmi-size">4.4 GB</div>
+                </div>
+                <div class="mmi-tags">
+                  <div class="mmi-tag g">7B</div>
+                  <div class="mmi-tag b">Q4_K_M</div>
+                  <div class="mmi-tag a">中文优化</div>
+                </div>
+                <div class="mmi-progress-wrap"><div class="mmi-progress" style="width:67%"></div></div>
+                <div class="mmi-bottom">
+                  <div class="mmi-compat ok">✓ 兼容当前硬件</div>
+                  <div class="mmi-dl-btn downloading">67% 下载中</div>
+                </div>
+              </div>
+              <div class="mockup-model-item">
+                <div class="mmi-header">
+                  <div class="mmi-name">Qwen2.5-7B-Instruct · Q8_0</div>
+                  <div class="mmi-size">7.7 GB</div>
+                </div>
+                <div class="mmi-tags">
+                  <div class="mmi-tag g">7B</div>
+                  <div class="mmi-tag b">Q8_0</div>
+                  <div class="mmi-tag a">最高精度</div>
+                </div>
+                <div class="mmi-bottom">
+                  <div class="mmi-compat warn">⚠ 需要 8GB+ 显存</div>
+                  <div class="mmi-dl-btn">下载</div>
+                </div>
+              </div>
+              <div class="mockup-model-item">
+                <div class="mmi-header">
+                  <div class="mmi-name">Qwen2.5-Coder-7B · Q4_K_M</div>
+                  <div class="mmi-size">4.4 GB</div>
+                </div>
+                <div class="mmi-tags">
+                  <div class="mmi-tag g">7B</div>
+                  <div class="mmi-tag b">代码特化</div>
+                </div>
+                <div class="mmi-bottom">
+                  <div class="mmi-compat ok">✓ 兼容当前硬件</div>
+                  <div class="mmi-dl-btn">下载</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="callout info">
+            <div class="callout-head">💡 绿色标注 = 推荐选择</div>
+            LM Studio 会根据你的 RAM / VRAM 自动标记兼容的量化版本，绿色"✓ 兼容当前硬件"即最优选择。
+          </div>
+          <div class="callout tip">
+            <div class="callout-head">🔍 搜索技巧</div>
+            可直接粘贴 Hugging Face URL，例如 <code>https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF</code>，也可输入 <code>用户名/模型名</code> 格式精确定位。
+          </div>
+        </div>
+        <div>
+          <table class="compare-table">
+            <thead><tr><th>量化</th><th>大小(7B)</th><th>推荐场景</th></tr></thead>
+            <tbody>
+              <tr><td><span class="tag blue">Q8_0</span></td><td>7.7 GB</td><td>高显存 / 精度优先</td></tr>
+              <tr><td><span class="tag green">Q5_K_M</span></td><td>5.1 GB</td><td>8GB 显卡推荐</td></tr>
+              <tr><td><span class="tag green">Q4_K_M ⭐</span></td><td>4.4 GB</td><td>CPU / 通用最佳</td></tr>
+              <tr><td><span class="tag orange">Q3_K_M</span></td><td>3.3 GB</td><td>内存紧张折中</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑦ 章节：Chat 对话界面 -->
+  <div class="slide" data-title="第三章：Chat 对话界面">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">03</div>
+      <div class="chapter-label">CHAPTER THREE</div>
+      <div class="chapter-title">Chat 对话界面</div>
+      <div class="chapter-desc">加载模型、设置 System Prompt、实时调节生成参数</div>
+    </div>
+  </div>
+
+  <!-- ⑧ Chat 界面详解 -->
+  <div class="slide" data-title="Chat 对话操作">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 03 · Chat 对话界面</div>
+      <div class="page-title">Chat 界面 · 完整操作流</div>
+      <div class="page-desc">右侧参数面板可实时调整，无需重新加载模型</div>
+
+      <!-- Mockup: Chat -->
+      <div class="mockup-wrap" style="height:300px;margin-bottom:16px;">
+        <div class="mockup-titlebar">
+          <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+          <div class="title-text">Chat · 对话界面</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-icon active">💬</div>
+            <div class="mockup-nav-icon">🔍</div>
+            <div class="mockup-nav-icon">📦</div>
+            <div class="mockup-nav-icon">↔️</div>
+            <div class="mockup-nav-icon">🔗</div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-chat-panel">
+              <div class="mockup-chat-main">
+                <div class="mockup-chat-topbar">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="mockup-model-selector">Qwen2.5-7B · Q4_K_M ▾</div>
+                    <div style="width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 5px #4ade80;"></div>
+                    <span style="color:#4ade80;font-size:9px;">已加载</span>
+                  </div>
+                  <div style="display:flex;gap:6px;">
+                    <div style="background:#1a1e28;border:1px solid #2a3045;border-radius:5px;padding:3px 8px;color:#8892a4;font-size:9px;">System Prompt</div>
+                    <div style="background:#1a1e28;border:1px solid #2a3045;border-radius:5px;padding:3px 8px;color:#8892a4;font-size:9px;">+ 新对话</div>
+                  </div>
+                </div>
+                <div class="mockup-chat-msgs">
+                  <div class="mockup-msg user"><div class="msg-label">USER</div><div class="msg-bubble">用 Python 写一个读取 CSV 并统计词频的脚本</div></div>
+                  <div class="mockup-msg ai"><div class="msg-label">QWEN2.5 · 312 tokens · 18 tok/s</div><div class="msg-bubble">好的，这里是一个简洁的实现：<br><span style="color:#00d4aa;font-size:10px;">```python<br>import csv<br>from collections import Counter<br>...</span></div></div>
+                </div>
+                <div class="mockup-chat-input-area">
+                  <div class="mockup-chat-input">继续输入问题...</div>
+                  <div class="mockup-send-btn">↑</div>
+                </div>
+              </div>
+              <div class="mockup-params-sidebar">
+                <div class="mparam-title">GENERATION PARAMS</div>
+                <div class="mparam-item">
+                  <div class="mparam-label">Temperature <span>0.7</span></div>
+                  <div class="mparam-val">0.70</div>
+                </div>
+                <div class="mparam-item">
+                  <div class="mparam-label">Top-P <span>0.9</span></div>
+                  <div class="mparam-val">0.90</div>
+                </div>
+                <div class="mparam-item">
+                  <div class="mparam-label">Context <span>4096</span></div>
+                  <div class="mparam-val">4096</div>
+                </div>
+                <div class="mparam-item">
+                  <div class="mparam-label">Rep. Penalty <span>1.1</span></div>
+                  <div class="mparam-val">1.10</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="callout info">
+          <div class="callout-head">⌨️ 快速加载模型</div>
+          在任意界面按 <span class="kbd">Cmd+L</span>（Mac）或 <span class="kbd">Ctrl+L</span>（Win/Linux）可弹出模型选择器，快速切换已下载模型。
+        </div>
+        <div class="callout tip">
+          <div class="callout-head">💡 System Prompt 设置</div>
+          点击顶部 <code>System Prompt</code> 按钮输入角色指令，如"你是一名专业的 Python 工程师，回答简洁"，每次对话自动携带。
+        </div>
+      </div>
+      <div class="callout warn">
+        <div class="callout-head">⚠️ 参数调整无需重载</div>
+        Chat 右侧面板中的 Temperature、Context Length 等参数修改后，下一条消息立即生效，无需重新加载模型。但修改 GPU 层数、Context 上限等加载参数则需重载。
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑨ 章节：本地 Server -->
+  <div class="slide" data-title="第四章：本地 Server 服务">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">04</div>
+      <div class="chapter-label">CHAPTER FOUR</div>
+      <div class="chapter-title">本地 Server 服务</div>
+      <div class="chapter-desc">一键开启 OpenAI 兼容 API，让任何工具都能调用你的本地模型</div>
+    </div>
+  </div>
+
+  <!-- ⑩ Server 界面详解 -->
+  <div class="slide" data-title="Local Server 配置">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 04 · 本地 Server 服务</div>
+      <div class="page-title">Local Server · 配置与使用</div>
+      <div class="page-desc">默认监听 localhost:1234，兼容所有支持 OpenAI API 的工具</div>
+
+      <!-- Mockup: Server -->
+      <div class="mockup-wrap" style="height:260px;margin-bottom:16px;">
+        <div class="mockup-titlebar">
+          <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+          <div class="title-text">Local Server · 开发者 API</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-icon">💬</div>
+            <div class="mockup-nav-icon">🔍</div>
+            <div class="mockup-nav-icon">📦</div>
+            <div class="mockup-nav-icon active">↔️</div>
+            <div class="mockup-nav-icon">🔗</div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-server-content">
+              <div class="mserver-status-bar">
+                <div class="mserver-label"><div class="mserver-dot"></div>服务运行中</div>
+                <div class="mserver-url">http://localhost:1234</div>
+                <div class="mserver-toggle">Stop Server</div>
+              </div>
+              <div style="display:flex;gap:10px;">
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+                  <div class="mserver-row">
+                    <div class="mserver-row-label">端口 Port</div>
+                    <div class="mserver-row-val">1234</div>
+                  </div>
+                  <div class="mserver-row">
+                    <div class="mserver-row-label">CORS 跨域</div>
+                    <div class="mserver-toggle-sm"></div>
+                  </div>
+                  <div class="mserver-row">
+                    <div class="mserver-row-label">本地网络访问</div>
+                    <div class="mserver-toggle-sm"></div>
+                  </div>
+                  <div class="mserver-row">
+                    <div class="mserver-row-label">已加载模型</div>
+                    <div class="mserver-row-val" style="color:#00d4aa;">Qwen2.5-7B-Q4</div>
+                  </div>
+                </div>
+                <div style="flex:1;">
+                  <div class="mserver-log">
+                    <div style="color:#3d4f66;"># Server Logs</div>
+                    <div><span style="color:#4ade80;">[INFO]</span> <span style="color:#4a6278;">Server started on :1234</span></div>
+                    <div><span style="color:#60a5fa;">[REQ]</span> <span style="color:#4a6278;">POST /v1/chat/completions</span></div>
+                    <div><span style="color:#60a5fa;">[REQ]</span> <span style="color:#4a6278;">200 OK · 312 tokens · 18 t/s</span></div>
+                    <div><span style="color:#60a5fa;">[REQ]</span> <span style="color:#4a6278;">GET /v1/models → 200</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="callout info">
+            <div class="callout-head">📌 关键配置</div>
+            <ul class="styled-list">
+              <li><strong>CORS</strong>：开启后允许浏览器前端应用跨域请求</li>
+              <li><strong>本地网络</strong>：开启后局域网内其他设备可访问（地址变为 0.0.0.0:1234）</li>
+              <li><strong>端口</strong>：可在 Settings 中修改，避免与其他服务冲突</li>
+            </ul>
+          </div>
+          <div class="callout tip">
+            <div class="callout-head">💡 兼容工具</div>
+            Cherry Studio · Open WebUI · Cursor · Continue(VSCode) · Obsidian · 任何支持自定义 OpenAI endpoint 的应用，填入 <code>http://localhost:1234/v1</code> 即可
+          </div>
+        </div>
+        <div>
+          <div class="terminal">
+            <div class="term-bar"><div class="term-dots"><div class="term-dot red"></div><div class="term-dot yellow"></div><div class="term-dot green"></div></div><div class="term-label">Python · openai 库调用</div></div>
+            <div class="term-body">
+              <div><span class="t-kw">from</span> <span class="t-cmd">openai</span> <span class="t-kw">import</span> <span class="t-cmd">OpenAI</span></div>
+              <div>&nbsp;</div>
+              <div><span class="t-comment"># 指向本地 LM Studio</span></div>
+              <div><span class="t-cmd">client = OpenAI(</span></div>
+              <div>&nbsp;&nbsp;<span class="t-cmd">base_url=</span><span class="t-str">"http://localhost:1234/v1"</span><span class="t-cmd">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-cmd">api_key=</span><span class="t-str">"lm-studio"</span>  <span class="t-comment"># 任意值</span></div>
+              <div><span class="t-cmd">)</span></div>
+              <div><span class="t-cmd">resp = client.chat.completions.create(</span></div>
+              <div>&nbsp;&nbsp;<span class="t-cmd">model=</span><span class="t-str">"local-model"</span><span class="t-cmd">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-cmd">messages=[{</span><span class="t-str">"role"</span><span class="t-cmd">:</span><span class="t-str">"user"</span><span class="t-cmd">,</span></div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-str">"content"</span><span class="t-cmd">:</span><span class="t-str">"你好"</span><span class="t-cmd">}]</span></div>
+              <div><span class="t-cmd">)</span></div>
+              <div><span class="t-kw">print</span><span class="t-cmd">(resp.choices[0].message.content)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑪ 章节：LM Link -->
+  <div class="slide" data-title="第五章：LM Link 远程模型">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">05</div>
+      <div class="chapter-label">CHAPTER FIVE · NEW FEATURE</div>
+      <div class="chapter-title">LM Link 远程模型</div>
+      <div class="chapter-desc">在你的任何设备上，透明地使用强力机器上的本地模型</div>
+    </div>
+  </div>
+
+  <!-- ⑫ LM Link 详解 -->
+  <div class="slide" data-title="LM Link 配置与使用">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 05 · LM Link 远程模型</div>
+      <div class="page-title">LM Link · 端对端加密远程推理</div>
+      <div class="page-desc">桌面机跑模型，笔记本用模型，跨网络、无公网暴露，基于 Tailscale 加密</div>
+
+      <!-- Mockup: LM Link -->
+      <div class="mockup-wrap" style="height:240px;margin-bottom:16px;">
+        <div class="mockup-titlebar">
+          <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+          <div class="title-text">LM Link · 设备管理</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-nav-icon">💬</div>
+            <div class="mockup-nav-icon">🔍</div>
+            <div class="mockup-nav-icon">📦</div>
+            <div class="mockup-nav-icon">↔️</div>
+            <div class="mockup-nav-icon active">🔗</div>
+          </div>
+          <div class="mockup-content" style="padding:14px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="color:#7c5cfc;font-size:10px;letter-spacing:.1em;">LM LINK · MY NETWORK</div>
+              <div class="mlink-enc-badge">🔒 端对端加密 · Tailscale</div>
+            </div>
+            <div class="mlink-device">
+              <div class="mlink-device-icon">🖥️</div>
+              <div class="mlink-device-info">
+                <div class="mlink-device-name">MacBook Pro M3 Max · 当前设备</div>
+                <div class="mlink-device-meta">Qwen2.5-7B 已本地加载 · 18 tok/s</div>
+              </div>
+              <div class="mlink-device-status self">本机</div>
+            </div>
+            <div class="mlink-device">
+              <div class="mlink-device-icon">🖥️</div>
+              <div class="mlink-device-info">
+                <div class="mlink-device-name">Desktop · RTX 4090 · 办公室</div>
+                <div class="mlink-device-meta">DeepSeek-R1-70B · Q4_K_M · 42 tok/s</div>
+              </div>
+              <div class="mlink-device-status online">在线 ↗</div>
+            </div>
+            <div style="background:#141824;border:1px solid #222640;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+              <div style="color:#8892a4;font-size:10px;">远程模型 DeepSeek-R1-70B 已透明挂载至 localhost:1234</div>
+              <div style="color:#00d4aa;font-size:10px;font-weight:700;">← 优先使用远程 ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="callout tip">
+            <div class="callout-head">🔗 LM Link 工作原理</div>
+            <ul class="styled-list">
+              <li>基于 <strong>Tailscale 加密 VPN Mesh</strong>，设备间直连，不经过 LM Studio 服务器</li>
+              <li>对话内容、推理过程完全在你的设备间传输</li>
+              <li>远程模型在 Chat / API 中以本地方式显示，工具无感知</li>
+            </ul>
+          </div>
+          <div class="callout info">
+            <div class="callout-head">📌 免费限额</div>
+            目前 LM Link 免费版支持最多 <strong>2 个用户，每人 5 台设备</strong>（共 10 台）。与现有 Tailscale VPN 共存，互不干扰。
+          </div>
+        </div>
+        <div>
+          <div class="workflow">
+            <div class="workflow-step">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <div class="step-title">登录 LM Studio Hub</div>
+                <div class="step-desc">在 GUI 点击 LM Link 标签 → <strong>Sign in</strong>，或命令行 <code>lms login</code></div>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <div class="step-title">添加远程设备</div>
+                <div class="step-desc">点击 <strong>Add a remote machine</strong>，在目标机器上执行 <code>lms link enable</code></div>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <div class="step-title">加载远程模型即用</div>
+                <div class="step-desc">回到 Chat，模型选择器中远程设备的模型自动出现，选中即可，API 仍用 <code>localhost:1234</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑬ 章节：高效技巧 & 排错 -->
+  <div class="slide" data-title="第六章：高效技巧与排错">
+    <div class="slide-inner centered">
+      <div class="chapter-num-big">06</div>
+      <div class="chapter-label">CHAPTER SIX</div>
+      <div class="chapter-title">高效技巧 & 排错</div>
+      <div class="chapter-desc">快捷键、CLI 命令、My Models 配置与常见问题速查</div>
+    </div>
+  </div>
+
+  <!-- ⑭ 高效技巧 -->
+  <div class="slide" data-title="快捷键与实用技巧">
+    <div class="slide-inner scrollable">
+      <div class="page-chapter-tag">CHAPTER 06 · 高效技巧与排错</div>
+      <div class="page-title">快捷键 · CLI · 常见排错</div>
+      <div class="page-desc">掌握这些技巧，效率翻倍</div>
+
+      <div class="two-col" style="margin-bottom:16px;">
+        <div>
+          <div style="font-size:.9rem;color:var(--text-bright);font-weight:600;margin-bottom:10px;">⌨️ 常用快捷键</div>
+          <table class="key-table">
+            <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
+            <tbody>
+              <tr><td><span class="kbd">Cmd/Ctrl+L</span></td><td>打开模型加载器</td></tr>
+              <tr><td><span class="kbd">Cmd/Ctrl+,</span></td><td>快速跳转设置</td></tr>
+              <tr><td><span class="kbd">Cmd/Ctrl+N</span></td><td>新建对话</td></tr>
+              <tr><td><span class="kbd">Cmd/Ctrl+Enter</span></td><td>发送消息</td></tr>
+              <tr><td><span class="kbd">Cmd/Ctrl+Shift+C</span></td><td>复制最后回复</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:14px;font-size:.9rem;color:var(--text-bright);font-weight:600;margin-bottom:10px;">🛠️ CLI 常用命令</div>
+          <div class="terminal" style="margin-bottom:0;">
+            <div class="term-bar"><div class="term-dots"><div class="term-dot red"></div><div class="term-dot yellow"></div><div class="term-dot green"></div></div><div class="term-label">lms CLI</div></div>
+            <div class="term-body">
+              <div><span class="t-comment"># 查看已下载模型</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms ls</span></div>
+              <div><span class="t-comment"># 下载模型（含量化选择）</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms get llama-3.2-8b</span><span class="t-flag">@q4_k_m</span></div>
+              <div><span class="t-comment"># 加载并开启 server</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms load qwen2.5-7b</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms server start</span></div>
+              <div><span class="t-comment"># LM Link 操作</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms login</span></div>
+              <div><span class="t-prompt">$</span> <span class="t-cmd">lms link enable</span></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.9rem;color:var(--text-bright);font-weight:600;margin-bottom:10px;">🔧 My Models 配置技巧</div>
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-title">设置模型默认参数</div>
+            <div class="card-body">进入 <code>My Models</code> 标签，点击模型右侧 <strong>⚙️</strong> 图标，可为每个模型单独配置默认 Temperature、Context 等，下次加载自动应用。</div>
+          </div>
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-title">固定常用模型</div>
+            <div class="card-body">在 My Models 中右键模型，选 <strong>Pin to top</strong>，常用模型置顶，避免在长列表中查找。</div>
+          </div>
+          <div class="card">
+            <div class="card-title">外部 GGUF 文件导入</div>
+            <div class="card-body">已有 <code>.gguf</code> 文件？在 My Models 点 <strong>Import Model</strong>，或直接将文件放入 <code>~/.lmstudio/models/</code> 目录，重启后自动识别。</div>
+          </div>
+
+          <div style="margin-top:12px;" class="callout warn">
+            <div class="callout-head">⚠️ 常见问题速查</div>
+            <ul class="styled-list">
+              <li><strong>生成极慢</strong>：Settings → GPU → 确认 GPU offload 层数 &gt; 0</li>
+              <li><strong>加载失败</strong>：内存不足，换 Q3/Q4 更低量化版本</li>
+              <li><strong>中文乱码</strong>：换 Qwen 系列或 DeepSeek 中文模型</li>
+              <li><strong>API 拒绝连接</strong>：Local Server 未 Start，或端口被占用</li>
+              <li><strong>LM Link 无法连接</strong>：两台设备需同时登录同一 Hub 账号</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑮ 结束页 -->
+  <div class="slide" data-title="课程结束">
+    <div class="slide-inner centered">
+      <div class="end-icon">🚀</div>
+      <div class="end-title">开始你的本地 AI 之旅</div>
+      <div class="end-sub">LM Studio · 界面友好 · 完全离线 · OpenAI 兼容 · LM Link 远程算力共享</div>
+      <div style="margin-bottom:24px;">
+        <span class="tag green">✓ 完全离线</span>
+        <span class="tag blue">✓ OpenAI 兼容 API</span>
+        <span class="tag purple">✓ LM Link 远程推理</span>
+        <span class="tag orange">✓ 零成本使用</span>
+      </div>
+      <div class="btn-group">
+        <a class="btn primary" href="https://lmstudio.ai" target="_blank">🌐 官网下载</a>
+        <a class="btn secondary" href="https://lmstudio.ai/link" target="_blank">🔗 LM Link 介绍</a>
+        <a class="btn secondary" href="https://lmstudio.ai/docs" target="_blank">📖 官方文档</a>
+        <a class="btn secondary" href="https://huggingface.co/models?library=gguf" target="_blank">📦 GGUF 模型库</a>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /slides -->
+
+<!-- ── 固定 UI ── -->
+<div id="top-controls">
+  <span id="theme-label">DARK</span>
+  <div id="theme-track" onclick="toggleTheme()"></div>
+  <button id="menu-btn" onclick="toggleSidebar()">☰ 目录</button>
+</div>
+<div id="sidebar"></div>
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-first" onclick="goTo(0)">⏮</button>
+  <button class="nav-btn" id="btn-prev" onclick="goTo(current-1)">◀</button>
+  <div id="page-counter">1 / 15</div>
+  <button class="nav-btn" id="btn-next" onclick="goTo(current+1)">▶</button>
+  <button class="nav-btn" id="btn-last" onclick="goTo(total-1)">⏭</button>
+</div>
+<div id="shortcuts">← → 翻页<br>M 目录<br>T 亮暗切换<br>G 跳转<br>F 全屏</div>
+<div id="toast"></div>
+<div id="goto-modal" class="modal-overlay" onclick="if(event.target===this)closeGotoModal()">
+  <div class="modal-content">
+    <div class="modal-title">跳转到页面</div>
+    <input type="number" id="goto-input" class="modal-input" min="1" placeholder="1"
+           onkeydown="if(event.key==='Enter')submitGoto();if(event.key==='Escape')closeGotoModal();">
+    <div class="modal-hint">共 <span id="goto-total"></span> 页，按 Enter 确认</div>
+  </div>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = 0, busy = false;
+let theme = localStorage.getItem('slide-theme') || 'dark';
+
+function applyTheme(t, animate) {
+  if (!animate) document.documentElement.classList.add('no-transition');
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'DARK' : 'LIGHT';
+  localStorage.setItem('slide-theme', t);
+  if (!animate) { document.documentElement.getBoundingClientRect(); document.documentElement.classList.remove('no-transition'); }
+}
+function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(theme, true); showToast(theme === 'light' ? '☀️ 亮色模式' : '🌙 暗色模式'); }
+applyTheme(theme, false);
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function updateUI() {
+  document.getElementById('page-counter').textContent = `${current+1} / ${total}`;
+  document.getElementById('progress-bar').style.width = `${current/(total-1)*100}%`;
+  document.getElementById('btn-first').disabled = current === 0;
+  document.getElementById('btn-prev').disabled = current === 0;
+  document.getElementById('btn-next').disabled = current === total-1;
+  document.getElementById('btn-last').disabled = current === total-1;
+  document.querySelectorAll('.sidebar-item').forEach((el,i) => el.classList.toggle('active', i === current));
+}
+function goTo(n) {
+  if (busy || n < 0 || n >= total || n === current) return;
+  busy = true;
+  const prev = slides[current], next = slides[n], dir = n > current ? 1 : -1;
+  prev.classList.add('exit-up');
+  if (dir < 0) prev.style.transform = 'translateY(36px)';
+  next.classList.add('enter-from-below');
+  if (dir < 0) next.style.transform = 'translateY(-36px)';
+  next.classList.remove('active');
+  requestAnimationFrame(() => { requestAnimationFrame(() => {
+    next.classList.remove('enter-from-below'); next.classList.add('active');
+    const inner = next.querySelector('.slide-inner'); if (inner) inner.scrollTop = 0;
+    current = n; updateUI();
+    setTimeout(() => { prev.classList.remove('active','exit-up'); prev.style.transform = ''; busy = false; }, 420);
+  }); });
+}
+const sidebar = document.getElementById('sidebar');
+slides.forEach((s,i) => {
+  const item = document.createElement('div'); item.className = 'sidebar-item';
+  item.textContent = `${i+1}. ${s.dataset.title||''}`; item.onclick = () => { goTo(i); toggleSidebar(false); };
+  sidebar.appendChild(item);
+});
+function toggleSidebar(force) { const open = force !== undefined ? force : !sidebar.classList.contains('open'); sidebar.classList.toggle('open', open); }
+document.addEventListener('click', e => { if (!sidebar.contains(e.target) && !document.getElementById('menu-btn').contains(e.target)) toggleSidebar(false); });
+function openGotoModal() { document.getElementById('goto-total').textContent = total; document.getElementById('goto-modal').classList.add('show'); const inp = document.getElementById('goto-input'); inp.value=''; inp.focus(); }
+function closeGotoModal() { document.getElementById('goto-input').blur(); document.getElementById('goto-modal').classList.remove('show'); }
+function submitGoto() { const p = parseInt(document.getElementById('goto-input').value,10); if (p>=1&&p<=total) { goTo(p-1); showToast(`跳转到第 ${p} 页`); } closeGotoModal(); }
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (document.getElementById('goto-modal').classList.contains('show')) return;
+  const inner = slides[current].querySelector('.slide-inner');
+  switch(e.key) {
+    case 'ArrowRight': case ' ': e.preventDefault(); goTo(current+1); break;
+    case 'ArrowLeft': e.preventDefault(); goTo(current-1); break;
+    case 'ArrowDown': if (inner&&inner.scrollHeight>inner.clientHeight&&inner.scrollTop<inner.scrollHeight-inner.clientHeight-2) inner.scrollBy({top:80,behavior:'smooth'}); else goTo(current+1); break;
+    case 'ArrowUp': if (inner&&inner.scrollTop>2) inner.scrollBy({top:-80,behavior:'smooth'}); else goTo(current-1); break;
+    case 'PageDown': e.preventDefault(); goTo(current+1); break;
+    case 'PageUp': e.preventDefault(); goTo(current-1); break;
+    case 'Home': e.preventDefault(); goTo(0); showToast('已到第一页'); break;
+    case 'End': e.preventDefault(); goTo(total-1); showToast('已到最后一页'); break;
+    case 'g': case 'G': openGotoModal(); break;
+    case 'm': case 'M': toggleSidebar(); break;
+    case 't': case 'T': toggleTheme(); break;
+    case 'f': case 'F': if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); break;
+    case 'Escape': if (document.getElementById('goto-modal').classList.contains('show')) closeGotoModal(); else toggleSidebar(false); break;
+  }
+});
+let tx=0, ty=0;
+document.addEventListener('touchstart', e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+document.addEventListener('touchend', e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){dx<0?goTo(current+1):goTo(current-1);}},{passive:true});
+updateUI();
+</script>
+</body>
+</html>
