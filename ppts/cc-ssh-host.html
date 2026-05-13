@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code 远程开发指南</title>
+  <!-- 字体CDN -->
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-webfont/1.6.0/style.css">
+  <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/firacode/6.2.0/fira_code.min.css">
+  <style>
+    /* ═══════════════════════════════════════════
+       CSS 变量系统
+    ═══════════════════════════════════════════ */
+    :root {
+      --accent: #00d4aa;
+      --accent2: #ff6b35;
+      --accent3: #7c5cfc;
+      --green: #4ade80;
+      --red: #f87171;
+      --blue: #60a5fa;
+      --pink: #f472b6;
+      --yellow-display: #f0c040;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0d0f14;
+      --bg2: #13161d;
+      --bg3: #1a1e28;
+      --panel: #1e2330;
+      --border: #2a3045;
+      --text: #e2e8f4;
+      --text-dim: #8892a4;
+      --text-bright: #ffffff;
+      --term-bg: #0a0c10;
+      --term-comment: #3d4f66;
+      --term-out: #4a6278;
+      --grid-color: rgba(0,212,170,.022);
+      --nav-bg: rgba(13,15,20,.88);
+      --kbd-bg: #1a1e28;
+    }
+
+    [data-theme="light"] {
+      --bg: #f4f6fb;
+      --bg2: #eaecf4;
+      --bg3: #dde1ee;
+      --panel: #ffffff;
+      --border: #c8cfe0;
+      --text: #2a3050;
+      --text-dim: #6b7599;
+      --text-bright: #0d1020;
+      --term-bg: #1a1d28;
+      --term-comment: #5a7a96;
+      --term-out: #7a98b0;
+      --grid-color: rgba(0,140,110,.04);
+      --nav-bg: rgba(244,246,251,.92);
+      --kbd-bg: #eaecf4;
+      --yellow-display: #b07800;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'LXGW WenKai', serif;
+      transition: background .35s ease, color .35s ease, border-color .35s ease;
+    }
+
+    /* 防闪烁 */
+    .no-transition * { transition: none !important; }
+
+    /* ═══════════════════════════════════════════
+       字体声明
+    ═══════════════════════════════════════════ */
+    @font-face {
+      font-family: 'SiteFontMono';
+      src: local('Fira Code');
+      font-weight: 100 900;
+      unicode-range:
+        U+0020-007E, U+00A0-02FF, U+0300-036F, U+0370-03FF, U+0400-04FF,
+        U+2000-206F, U+2070-209F, U+20A0-20CF, U+2100-214F, U+2150-218F,
+        U+2190-21FF, U+2200-22FF, U+2300-23FF, U+2400-243F,
+        U+2500-257F, U+25A0-25FF, U+2600-26FF, U+FB00-FB06, U+FE70-FEFF;
+    }
+    @font-face {
+      font-family: 'SiteFontMono';
+      src: local('LXGW WenKai');
+      font-weight: 100 900;
+      unicode-range:
+        U+2E80-2EFF, U+2F00-2FDF, U+3000-303F, U+3040-309F, U+30A0-30FF,
+        U+3100-312F, U+3130-318F, U+3190-31EF, U+31F0-31FF, U+3200-33FF,
+        U+3400-4DBF, U+4E00-9FFF, U+A000-A4CF, U+A960-A97F, U+AC00-D7FF,
+        U+F900-FAFF, U+FE10-FE6F, U+FF00-FFEF, U+20000-2A6DF, U+2A700-2CEAF;
+    }
+
+    /* ═══════════════════════════════════════════
+       背景网格
+    ═══════════════════════════════════════════ */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+
+    /* ═══════════════════════════════════════════
+       进度条
+    ═══════════════════════════════════════════ */
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      box-shadow: 0 0 12px var(--accent);
+      z-index: 1000;
+      transition: width .4s ease;
+    }
+
+    /* ═══════════════════════════════════════════
+       右上角控件
+    ═══════════════════════════════════════════ */
+    #top-controls {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 500;
+    }
+
+    #theme-label {
+      font-family: 'SiteFontMono', 'Fira Code', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: .1em;
+    }
+
+    #theme-track {
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+      transition: background .3s;
+    }
+    #theme-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: transform .3s, background .3s;
+    }
+    [data-theme="light"] #theme-track { background: var(--accent); }
+    [data-theme="light"] #theme-track::after { transform: translateX(18px); background: #fff; }
+
+    #menu-btn {
+      font-family: 'SiteFontMono', 'Fira Code', monospace;
+      font-size: 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    #menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ═══════════════════════════════════════════
+       幻灯片系统
+    ═══════════════════════════════════════════ */
+    #slides {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(36px);
+      transition: opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);
+    }
+    .slide.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+    .slide.exit-up {
+      opacity: 0;
+      transform: translateY(-36px);
+      transition: opacity .3s ease, transform .3s ease;
+    }
+    .slide.enter-from-below {
+      opacity: 0;
+      transform: translateY(56px);
+      transition: none;
+    }
+
+    .slide-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      padding: 60px 80px 100px;
+      box-sizing: border-box;
+    }
+
+    .slide-inner.centered {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+    }
+
+    .slide-inner.scrollable {
+      overflow-y: auto;
+      max-height: calc(100vh - 136px);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .slide-inner.scrollable::-webkit-scrollbar { width: 6px; }
+    .slide-inner.scrollable::-webkit-scrollbar-track { background: transparent; }
+    .slide-inner.scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════
+       组件样式
+    ═══════════════════════════════════════════ */
+
+    /* 章节过渡页 */
+    .section-title {
+      font-size: 72px;
+      font-weight: 700;
+      color: var(--border);
+      font-family: 'SiteFontMono', monospace;
+      margin-bottom: 8px;
+    }
+    .section-name {
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+    }
+    .section-desc {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 600px;
+      text-align: center;
+    }
+
+    /* 内容页标题 */
+    .chapter-tag {
+      display: inline-block;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 11px;
+      background: var(--accent);
+      color: var(--bg);
+      padding: 3px 10px;
+      border-radius: 3px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .page-title {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin: 0 0 8px;
+    }
+    .page-desc {
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+
+    /* 卡片 */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      transition: transform .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transition: transform .2s;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+    .card:hover::before { transform: scaleX(1); }
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* 网格布局 */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+    /* 终端块 */
+    .terminal {
+      background: var(--term-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid var(--border);
+      margin: 16px 0;
+    }
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,.05);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #28ca41; }
+    .terminal-title {
+      margin-left: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .terminal-body {
+      padding: 14px 18px;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.8;
+    }
+    .t-prompt { color: var(--accent); }
+    .t-cmd { color: var(--text-bright); }
+    .t-comment { color: var(--term-comment); }
+    .t-out { color: var(--term-out); }
+    .t-kw { color: var(--accent3); }
+    .t-str { color: var(--green); }
+    .t-flag { color: var(--pink); }
+    .t-success { color: var(--green); }
+    .t-error { color: var(--red); }
+    .t-highlight { color: var(--yellow-display); background: rgba(240,192,64,.15); padding: 1px 4px; border-radius: 3px; }
+
+    /* 提示框 */
+    .callout {
+      padding: 14px 18px;
+      border-radius: 6px;
+      border-left: 3px solid;
+      background: rgba(0,212,170,.08);
+      border-color: var(--accent);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 12px 0;
+    }
+    .callout.warn { background: rgba(255,107,53,.08); border-color: var(--accent2); }
+    .callout.tip { background: rgba(124,92,252,.08); border-color: var(--accent3); }
+    .callout.info { background: rgba(96,165,250,.08); border-color: var(--blue); }
+    .callout-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--accent);
+    }
+    .callout.warn .callout-title { color: var(--accent2); }
+    .callout.tip .callout-title { color: var(--accent3); }
+    .callout.info .callout-title { color: var(--blue); }
+
+    /* 标签徽章 */
+    .tag {
+      display: inline-block;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background: rgba(0,212,170,.15);
+      color: var(--accent);
+    }
+    .tag.blue { background: rgba(96,165,250,.15); color: var(--blue); }
+    .tag.purple { background: rgba(124,92,252,.15); color: var(--accent3); }
+    .tag.orange { background: rgba(255,107,53,.15); color: var(--accent2); }
+
+    /* kbd 标签 */
+    .kbd {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 12px;
+      background: var(--kbd-bg);
+      color: var(--yellow-display);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border-bottom: 2px solid rgba(0,0,0,.3);
+    }
+
+    /* 快捷键表 */
+    .key-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .key-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--bg2);
+      color: var(--text-dim);
+      font-family: 'SiteFontMono', monospace;
+      font-size: 12px;
+      border-bottom: 2px solid var(--accent);
+    }
+    .key-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .key-table tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* 内联代码 */
+    code {
+      font-family: 'SiteFontMono', 'Fira Code', monospace;
+      background: var(--bg3);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: .9em;
+      border: 1px solid var(--border);
+    }
+
+    /* 表格 */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 12px 0;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--bg2);
+      color: var(--text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--border);
+    }
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .data-table tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* 会话结构图 */
+    .session-map {
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 18px 22px;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .sess { color: var(--accent); }
+    .win { color: var(--blue); }
+    .pane { color: var(--yellow-display); }
+
+    /* 工作流步骤 */
+    .workflow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .workflow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      position: relative;
+    }
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'SiteFontMono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .step-content {
+      flex: 1;
+      padding-bottom: 24px;
+    }
+    .step-content h4 {
+      margin: 4px 0 6px;
+      font-size: 16px;
+      color: var(--text-bright);
+    }
+    .step-content p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .workflow-step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+
+    /* 会话架构图 */
+    .arch-diagram {
+      background: var(--term-bg);
+      border-radius: 12px;
+      padding: 30px;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 15px;
+      line-height: 1.8;
+      border: 1px solid var(--border);
+      display: inline-block;
+      margin: 20px 0;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      min-width: 480px;
+    }
+    .arch-header {
+      text-align: center;
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+      border-bottom: 1px dashed var(--border);
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+    .arch-body {
+      font-family: 'SiteFontMono', monospace;
+    }
+    .arch-line { color: var(--text-dim); }
+    .arch-accent { color: var(--accent); }
+    .arch-blue { color: var(--blue); }
+    .arch-yellow { color: var(--yellow-display); }
+    .arch-purple { color: var(--accent3); }
+
+    /* 封面样式 */
+    .cover-title {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .cover-subtitle {
+      font-size: 22px;
+      color: var(--accent);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .cover-meta {
+      display: flex;
+      gap: 24px;
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+    .cover-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 结束页 */
+    .end-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    .end-title {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+    }
+    .end-desc {
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 32px;
+    }
+    .link-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .link-btn {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      text-decoration: none;
+      transition: all .2s;
+    }
+    .link-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ═══════════════════════════════════════════
+       目录侧边栏
+    ═══════════════════════════════════════════ */
+    #sidebar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 300px;
+      height: 100%;
+      background: var(--nav-bg);
+      backdrop-filter: blur(14px);
+      border-left: 1px solid var(--border);
+      z-index: 400;
+      transform: translateX(100%);
+      transition: transform .3s ease;
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+    #sidebar.open { transform: translateX(0); }
+    .sidebar-title {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: .1em;
+      padding: 0 20px 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .sidebar-item {
+      padding: 10px 20px;
+      font-size: 14px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .2s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+    .sidebar-item.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(0,212,170,.08);
+    }
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 350;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s;
+    }
+    .sidebar-overlay.show { opacity: 1; pointer-events: all; }
+
+    /* ═══════════════════════════════════════════
+       跳转模态框
+    ═══════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: all; }
+    .modal-content {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      text-align: center;
+    }
+    .modal-title {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: .1em;
+      margin-bottom: 14px;
+    }
+    .modal-input {
+      width: 80px;
+      padding: 8px 12px;
+      font-size: 18px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      text-align: center;
+      outline: none;
+      font-family: 'SiteFontMono', monospace;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-hint {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 10px;
+    }
+
+    /* ═══════════════════════════════════════════
+       底部导航栏
+    ═══════════════════════════════════════════ */
+    #nav-bar {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      background: var(--nav-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      z-index: 200;
+    }
+    .nav-btn {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 12px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 4px;
+      transition: all .2s;
+    }
+    .nav-btn:hover:not(:disabled) { color: var(--accent); }
+    .nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .nav-page {
+      font-family: 'SiteFontMono', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════
+       Toast
+    ═══════════════════════════════════════════ */
+    #toast {
+      position: fixed;
+      top: 22px;
+      left: 50%;
+      transform: translateY(-70px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      z-index: 700;
+      transition: transform .3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    }
+    #toast.show { transform: translateY(0); }
+
+    /* ═══════════════════════════════════════════
+       快捷键提示
+    ═══════════════════════════════════════════ */
+    #shortcuts-hint {
+      position: fixed;
+      bottom: 28px;
+      right: 22px;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 9px;
+      color: var(--text-dim);
+      opacity: .6;
+      z-index: 100;
+      text-align: right;
+      line-height: 1.8;
+    }
+
+    /* ═══════════════════════════════════════════
+       内容页通用布局
+    ═══════════════════════════════════════════ */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .content-block {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .content-block h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin: 0;
+    }
+    .content-block p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.7;
+      margin: 0;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* 列表样式 */
+    .styled-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .styled-list li {
+      font-size: 14px;
+      color: var(--text-dim);
+      padding-left: 20px;
+      position: relative;
+      line-height: 1.6;
+    }
+    .styled-list li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    /* 架构图样式 */
+    .topology-box {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: 'SiteFontMono', monospace;
+      font-size: 13px;
+      text-align: center;
+    }
+    .topology-box.accent { border-color: var(--accent); }
+    .topology-box.blue { border-color: var(--blue); }
+  </style>
+</head>
+<body>
+  <!-- 背景网格 -->
+  <div class="bg-grid"></div>
+
+  <!-- 进度条 -->
+  <div id="progress-bar"></div>
+
+  <!-- 右上角控件 -->
+  <div id="top-controls">
+    <span id="theme-label">DARK</span>
+    <div id="theme-track" onclick="toggleTheme()"></div>
+    <button id="menu-btn" onclick="toggleSidebar()">☰ 目录</button>
+  </div>
+
+  <!-- 幻灯片容器 -->
+  <div id="slides">
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 1 页：封面 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide active" data-title="封面">
+      <div class="slide-inner centered">
+        <div class="cover-title">Claude Code 远程开发指南</div>
+        <div class="cover-subtitle">本地运行 + Tailscale SSH 访问多台远程主机</div>
+        <div class="cover-meta">
+          <span><span class="tag">难度</span> 中级</span>
+          <span><span class="tag blue">时长</span> 45 分钟</span>
+          <span><span class="tag purple">形式</span> 实操演示</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 2 页：大纲 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="大纲">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">CONTENTS</span>
+        <h1 class="page-title">培训大纲</h1>
+        <p class="page-desc">本指南涵盖远程开发的完整流程，从网络配置到实际使用</p>
+
+        <div class="grid-3" style="margin-top: 24px;">
+          <div class="card" onclick="goTo(2)">
+            <div class="card-title">01 概述与架构</div>
+            <div class="card-desc">方案原理与适用场景</div>
+          </div>
+          <div class="card" onclick="goTo(3)">
+            <div class="card-title">02 Tailscale 配置</div>
+            <div class="card-desc">Mesh VPN 网络搭建</div>
+          </div>
+          <div class="card" onclick="goTo(4)">
+            <div class="card-title">03 SSH 服务配置</div>
+            <div class="card-desc">免密登录与密钥管理</div>
+          </div>
+          <div class="card" onclick="goTo(5)">
+            <div class="card-title">04 MCP Server 安装</div>
+            <div class="card-desc">本地开发环境配置</div>
+          </div>
+          <div class="card" onclick="goTo(6)">
+            <div class="card-title">05 多主机配置</div>
+            <div class="card-desc">TOML 配置文件管理</div>
+          </div>
+          <div class="card" onclick="goTo(7)">
+            <div class="card-title">06 使用与验证</div>
+            <div class="card-desc">自然语言交互操作</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 3 页：章节 1 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="概述与架构">
+      <div class="slide-inner centered">
+        <div class="section-title">01</div>
+        <div class="section-name">概述与架构</div>
+        <div class="section-desc">理解本方案的核心原理与适用场景</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 4 页：概述内容 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="概述">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第一章</span>
+        <h1 class="page-title">方案概述</h1>
+        <p class="page-desc">让 Claude Code 运行在本地，通过 Tailscale 隧道操作远程主机</p>
+
+        <div class="content-area">
+          <div class="arch-diagram">
+            <div class="arch-header">本地机器 (运行 Claude Code)</div>
+            <div class="arch-body">
+              <div class="arch-accent">└─ SSH MCP Server</div>
+              <div class="arch-accent" style="padding-left: 24px;">└─ Tailscale 加密隧道</div>
+              <div class="arch-blue" style="padding-left: 48px;">├─ 远程主机 web (100.x.x.1)</div>
+              <div class="arch-blue" style="padding-left: 48px;">├─ 远程主机 db  (100.x.x.2)</div>
+              <div class="arch-purple" style="padding-left: 48px;">└─ 远程主机 dev (100.x.x.3)</div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-title">💡 核心优势</div>
+              <div class="card-desc">
+                <ul class="styled-list" style="margin-top: 8px;">
+                  <li>代码和数据存在远程服务器</li>
+                  <li>同时管理多台服务器</li>
+                  <li>无需在每台服务器安装 Claude Code</li>
+                  <li>跨网络访问内网服务器</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">📋 前置条件</div>
+              <div class="card-desc">
+                <ul class="styled-list" style="margin-top: 8px;">
+                  <li>本地：macOS/Linux + Node.js 16+</li>
+                  <li>远程：Linux + SSH 服务</li>
+                  <li>订阅：Pro/Max/Team/Enterprise</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout">
+            <div class="callout-title">适用场景</div>
+            <p>代码和数据存在远程服务器，本地只做开发；需要同时管理多台服务器（开发/测试/生产）；跨网络访问内网服务器（无固定 IP、无端口转发）</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 5 页：章节 2 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="Tailscale 配置">
+      <div class="slide-inner centered">
+        <div class="section-title">02</div>
+        <div class="section-name">Tailscale 配置</div>
+        <div class="section-desc">基于 WireGuard 的 mesh VPN，无需端口转发或固定 IP</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 6 页：Tailscale 安装 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="安装 Tailscale">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第二章</span>
+        <h1 class="page-title">安装与配置 Tailscale</h1>
+        <p class="page-desc">在所有设备上安装 Tailscale，组成私有网络</p>
+
+        <div class="content-area">
+          <div class="two-col">
+            <div class="content-block">
+              <h3>远程主机安装</h3>
+              <div class="terminal">
+                <div class="terminal-header">
+                  <span class="terminal-dot dot-red"></span>
+                  <span class="terminal-dot dot-yellow"></span>
+                  <span class="terminal-dot dot-green"></span>
+                  <span class="terminal-title">Ubuntu / Debian</span>
+                </div>
+                <div class="terminal-body">
+<span class="t-cmd">curl -fsSL https://tailscale.com/install.sh</span> <span class="t-flag">| sh</span>
+<span class="t-cmd">sudo tailscale up</span>
+<span class="t-comment"># 安装后会输出授权 URL，在浏览器中打开完成登录</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-block">
+              <h3>本地机器安装</h3>
+              <div class="card">
+                <div class="card-title">macOS</div>
+                <div class="card-desc">前往 <code>tailscale.com/download</code> 下载安装，使用同一账号登录</div>
+              </div>
+              <div class="card" style="margin-top: 12px;">
+                <div class="card-title">Linux</div>
+                <div class="card-desc">执行同样的安装脚本</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-block">
+            <h3>验证连通性</h3>
+            <div class="terminal">
+              <div class="terminal-header">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">验证命令</span>
+              </div>
+              <div class="terminal-body">
+<span class="t-cmd">tailscale status</span>
+<span class="t-comment"># 输出示例：</span>
+<span class="t-out">100.89.10.1   web-server    yourname@  linux   <span class="t-success">active</span>
+100.89.10.2   db-server     yourname@  linux   <span class="t-success">active</span>
+100.89.10.3   dev-server    yourname@  linux   <span class="t-success">active</span>
+100.120.25.92 my-macbook    yourname@  macOS   -</span>
+<span class="t-cmd">tailscale ping web-server</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout tip">
+            <div class="callout-title">💡 提示</div>
+            <p>Tailscale 个人版免费，支持最多 3 台设备；团队版支持更多设备</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 7 页：章节 3 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="SSH 配置">
+      <div class="slide-inner centered">
+        <div class="section-title">03</div>
+        <div class="section-name">SSH 服务配置</div>
+        <div class="section-desc">配置免密登录，确保 MCP Server 能稳定连接</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 8 页：SSH 配置内容 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="SSH 配置详解">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第三章</span>
+        <h1 class="page-title">配置远程主机 SSH</h1>
+        <p class="page-desc">确认服务运行 + 配置免密登录</p>
+
+        <div class="content-area">
+          <div class="content-block">
+            <h3>确认 SSH 服务已启动</h3>
+            <div class="terminal">
+              <div class="terminal-header">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">远程主机</span>
+              </div>
+              <div class="terminal-body">
+<span class="t-cmd">sudo systemctl enable ssh</span>
+<span class="t-cmd">sudo systemctl start ssh</span>
+<span class="t-cmd">sudo systemctl status ssh</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-block">
+            <h3>配置免密登录（SSH 密钥）</h3>
+            <p>在本地机器上执行：</p>
+            <div class="terminal">
+              <div class="terminal-header">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">本地机器</span>
+              </div>
+              <div class="terminal-body">
+<span class="t-comment"># 生成密钥（如果还没有）</span>
+<span class="t-cmd">ssh-keygen -t ed25519 -C "claude-code-remote"</span>
+
+<span class="t-comment"># 将公钥复制到各台远程主机</span>
+<span class="t-cmd">ssh-copy-id -i ~/.ssh/id_ed25519.pub ubuntu@100.89.10.1</span> <span class="t-comment"># web</span>
+<span class="t-cmd">ssh-copy-id -i ~/.ssh/id_ed25519.pub admin@100.89.10.2</span> <span class="t-comment"># db</span>
+<span class="t-cmd">ssh-copy-id -i ~/.ssh/id_ed25519.pub dev@100.89.10.3</span> <span class="t-comment"># dev</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-block">
+            <h3>验证免密连接</h3>
+            <div class="terminal">
+              <div class="terminal-body">
+<span class="t-cmd">ssh</span> <span class="t-highlight">ubuntu@100.89.10.1</span>
+<span class="t-comment"># 应直接登入，无需密码</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 9 页：章节 4 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="MCP Server">
+      <div class="slide-inner centered">
+        <div class="section-title">04</div>
+        <div class="section-name">MCP Server 安装</div>
+        <div class="section-desc">本地机器上安装 mcp-ssh-manager</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 10 页：安装 MCP Server -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="安装 MCP Server">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第四章</span>
+        <h1 class="page-title">安装 SSH MCP Server</h1>
+        <p class="page-desc">在本地机器上安装 mcp-ssh-manager</p>
+
+        <div class="content-area">
+          <div class="workflow">
+            <div class="workflow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <h4>安装 npm 包</h4>
+                <p>使用 npm 全局安装 mcp-ssh-manager</p>
+                <div class="terminal">
+                  <div class="terminal-header">
+                    <span class="terminal-dot dot-red"></span>
+                    <span class="terminal-dot dot-yellow"></span>
+                    <span class="terminal-dot dot-green"></span>
+                    <span class="terminal-title">本地机器</span>
+                  </div>
+                  <div class="terminal-body">
+<span class="t-cmd">npm install</span> <span class="t-flag">-g</span> <span class="t-highlight">mcp-ssh-manager</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <h4>重启 Claude Code</h4>
+                <p>安装完成后需要重启 Claude Code 使 MCP Server 生效</p>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <h4>验证连接</h4>
+                <p>在 Claude Code 中执行 <code>/mcp</code> 查看 ssh-manager 是否已连接</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout info">
+            <div class="callout-title">ℹ️ 提示</div>
+            <p>mcp-ssh-manager 支持通过环境变量或 TOML 文件配置多台主机，推荐使用 TOML 方式</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 11 页：章节 5 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="多主机配置">
+      <div class="slide-inner centered">
+        <div class="section-title">05</div>
+        <div class="section-name">多主机配置</div>
+        <div class="section-desc">TOML 文件管理多台服务器，支持跳板机场景</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 12 页：环境变量配置 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="环境变量配置">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第五章</span>
+        <h1 class="page-title">方式 A：环境变量配置</h1>
+        <p class="page-desc">适合 1~3 台服务器</p>
+
+        <div class="content-area">
+          <p style="font-size: 14px; color: var(--text-dim);">编辑 <code>~/.claude/mcp.json</code>：</p>
+          <div class="terminal">
+            <div class="terminal-header">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-yellow"></span>
+              <span class="terminal-dot dot-green"></span>
+              <span class="terminal-title">mcp.json</span>
+            </div>
+            <div class="terminal-body">
+<span class="t-prompt">{</span>
+<span class="t-prompt">  "mcpServers":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">    "ssh-manager":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">      "command":</span> <span class="t-str">"npx"</span><span class="t-prompt">,</span>
+<span class="t-prompt">      "args":</span> <span class="t-prompt">[</span><span class="t-str">"mcp-ssh-manager"</span><span class="t-prompt">],</span>
+<span class="t-prompt">      "env":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">        "SSH_SERVER_WEB_HOST":</span> <span class="t-str">"100.89.10.1"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_WEB_USER":</span> <span class="t-str">"ubuntu"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_WEB_KEYPATH":</span> <span class="t-str">"~/.ssh/id_ed25519"</span><span class="t-prompt">,</span>
+<span class="t-prompt"></span>
+<span class="t-prompt">        "SSH_SERVER_DB_HOST":</span> <span class="t-str">"100.89.10.2"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_DB_USER":</span> <span class="t-str">"admin"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_DB_KEYPATH":</span> <span class="t-str">"~/.ssh/id_ed25519"</span><span class="t-prompt">,</span>
+<span class="t-prompt"></span>
+<span class="t-prompt">        "SSH_SERVER_DEV_HOST":</span> <span class="t-str">"100.89.10.3"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_DEV_USER":</span> <span class="t-str">"dev"</span><span class="t-prompt">,</span>
+<span class="t-prompt">        "SSH_SERVER_DEV_KEYPATH":</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+<span class="t-prompt">      }</span>
+<span class="t-prompt">    }</span>
+<span class="t-prompt">  }</span>
+<span class="t-prompt">}</span>
+            </div>
+          </div>
+
+          <div class="callout warn">
+            <div class="callout-title">⚠️ 命名规则</div>
+            <p>服务器名只能使用字母、数字和下划线，例如 <code>WEB</code>、<code>DB_PRIMARY</code>、<code>STAGING</code>。<strong>不能使用连字符</strong>（<code>-</code>）</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 13 页：TOML 配置 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="TOML 配置">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第五章</span>
+        <h1 class="page-title">方式 B：TOML 配置文件</h1>
+        <p class="page-desc">推荐方式，适合 3 台以上服务器</p>
+
+        <div class="content-area">
+          <div class="two-col">
+            <div class="content-block">
+              <h3>步骤 1：创建配置文件</h3>
+              <div class="terminal" style="font-size: 12px;">
+                <div class="terminal-header">
+                  <span class="terminal-dot dot-red"></span>
+                  <span class="terminal-dot dot-yellow"></span>
+                  <span class="terminal-dot dot-green"></span>
+                  <span class="terminal-title">~/.ssh-manager/config.toml</span>
+                </div>
+                <div class="terminal-body">
+<span class="t-kw">[servers.web]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"100.89.10.1"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"ubuntu"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+
+<span class="t-kw">[servers.db]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"100.89.10.2"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"admin"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+
+<span class="t-kw">[servers.dev]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"100.89.10.3"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"dev"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+<span class="t-kw">port</span> <span class="t-prompt">=</span> <span class="t-highlight">2222</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-block">
+              <h3>步骤 2：编辑 mcp.json</h3>
+              <div class="terminal" style="font-size: 12px;">
+                <div class="terminal-header">
+                  <span class="terminal-dot dot-red"></span>
+                  <span class="terminal-dot dot-yellow"></span>
+                  <span class="terminal-dot dot-green"></span>
+                  <span class="terminal-title">~/.claude/mcp.json</span>
+                </div>
+                <div class="terminal-body">
+<span class="t-prompt">{</span>
+<span class="t-prompt">  "mcpServers":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">    "ssh-manager":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">      "command":</span> <span class="t-str">"npx"</span><span class="t-prompt">,</span>
+<span class="t-prompt">      "args":</span> <span class="t-prompt">[</span><span class="t-str">"mcp-ssh-manager"</span><span class="t-prompt">],</span>
+<span class="t-prompt">      "env":</span> <span class="t-prompt">{</span>
+<span class="t-prompt">        "SSH_CONFIG_PATH":</span> <span class="t-str">"/Users/你的用户名/.ssh-manager/config.toml"</span>
+<span class="t-prompt">      }</span>
+<span class="t-prompt">    }</span>
+<span class="t-prompt">  }</span>
+<span class="t-prompt">}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout success">
+            <div class="callout-title">✅ 优点</div>
+            <p>新增或修改服务器只需编辑 TOML 文件，无需重新修改 MCP 配置，也无需重启 Claude Code</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 14 页：跳板机配置 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="跳板机配置">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第五章</span>
+        <h1 class="page-title">跳板机（Bastion Host）场景</h1>
+        <p class="page-desc">通过跳板机访问内网服务器</p>
+
+        <div class="content-area">
+          <div class="terminal">
+            <div class="terminal-header">
+              <span class="terminal-dot dot-red"></span>
+              <span class="terminal-dot dot-yellow"></span>
+              <span class="terminal-dot dot-green"></span>
+              <span class="terminal-title">~/.ssh-manager/config.toml</span>
+            </div>
+            <div class="terminal-body">
+<span class="t-comment"># 跳板机</span>
+<span class="t-kw">[servers.bastion]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"100.89.10.1"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"jumpuser"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+
+<span class="t-comment"># 内网服务器，通过跳板机访问</span>
+<span class="t-kw">[servers.internal_db]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"192.168.1.10"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"admin"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+<span class="t-kw">proxyjump</span> <span class="t-prompt">=</span> <span class="t-str">"bastion"</span>
+
+<span class="t-comment"># 另一个内网服务</span>
+<span class="t-kw">[servers.internal_cache]</span>
+<span class="t-kw">host</span> <span class="t-prompt">=</span> <span class="t-str">"192.168.1.20"</span>
+<span class="t-kw">user</span> <span class="t-prompt">=</span> <span class="t-str">"redis"</span>
+<span class="t-kw">private_key_path</span> <span class="t-prompt">=</span> <span class="t-str">"~/.ssh/id_ed25519"</span>
+<span class="t-kw">proxyjump</span> <span class="t-prompt">=</span> <span class="t-str">"bastion"</span>
+            </div>
+          </div>
+
+          <div class="callout info">
+            <div class="callout-title">ℹ️ 工作原理</div>
+            <p>设置 <code>proxyjump = "bastion"</code> 后，连接内网服务器时会自动通过跳板机转发</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 15 页：章节 6 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="使用与验证">
+      <div class="slide-inner centered">
+        <div class="section-title">06</div>
+        <div class="section-name">使用与验证</div>
+        <div class="section-desc">验证配置 + 自然语言交互操作</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 16 页：验证配置 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="验证配置">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第六章</span>
+        <h1 class="page-title">验证配置</h1>
+        <p class="page-desc">重启 Claude Code 后验证 MCP Server 已加载</p>
+
+        <div class="content-area">
+          <div class="workflow">
+            <div class="workflow-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <h4>重启 Claude Code</h4>
+                <p>配置完成后需要重启 Claude Code 使 MCP Server 生效</p>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <h4>验证连接</h4>
+                <p>在 Claude Code 中执行 <code>/mcp</code> 命令</p>
+                <div class="terminal">
+                  <div class="terminal-body">
+<span class="t-cmd">/mcp</span>
+<span class="t-comment"># 应能看到 ssh-manager 已连接，并列出配置的服务器名称</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout">
+            <div class="callout-title">💡 服务器命名建议</div>
+            <p>服务器名越有语义，交互越自然。推荐用 <code>web</code>、<code>db</code>、<code>staging</code>、<code>prod</code> 这类业务含义清晰的名字</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 17 页：使用方式 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="使用方式">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第六章</span>
+        <h1 class="page-title">与 Claude 自然语言交互</h1>
+        <p class="page-desc">通过服务器名称直接指定目标主机</p>
+
+        <div class="content-area">
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title">🔧 执行命令</div>
+              <div class="card-desc" style="font-size: 13px; line-height: 1.8;">
+                <div>"在 <span class="tag">web</span> 服务器上查看 nginx 的运行状态"</div>
+                <div>"在 <span class="tag blue">db</span> 主机上检查 MySQL 的连接数"</div>
+                <div>"在 <span class="tag purple">dev</span> 环境重启 Python 应用进程"</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">📁 文件操作</div>
+              <div class="card-desc" style="font-size: 13px; line-height: 1.8;">
+                <div>"读取 <span class="tag">web</span> 服务器上 <code>/etc/nginx/nginx.conf</code>"</div>
+                <div>"把 <span class="tag blue">dev</span> 主机上 <code>/var/log/app.log</code> 最后 200 行发给我看"</div>
+                <div>"在 <span class="tag purple">staging</span> 服务器的 <code>/opt/app</code> 创建 <code>config.json</code>"</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🔄 跨主机操作</div>
+              <div class="card-desc" style="font-size: 13px; line-height: 1.8;">
+                <div>"同时检查 <span class="tag">web</span> 和 <span class="tag blue">db</span> 两台机器的磁盘使用情况"</div>
+                <div>"对比 <span class="tag purple">staging</span> 和 <span class="tag orange">prod</span> 上配置的差异"</div>
+                <div>"把 <span class="tag blue">dev</span> 机器上 <code>main.py</code> 同步到 <span class="tag purple">staging</span>"</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🖥️ 运维任务</div>
+              <div class="card-desc" style="font-size: 13px; line-height: 1.8;">
+                <div>"检查所有服务器的内存和 CPU 使用情况，汇总成表格"</div>
+                <div>"在 <span class="tag orange">prod</span> 服务器上执行数据库备份脚本"</div>
+                <div>"排查 <span class="tag">web</span> 服务器 nginx 502 报错的原因"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 18 页：章节 7 过渡 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="常见问题">
+      <div class="slide-inner centered">
+        <div class="section-title">07</div>
+        <div class="section-name">常见问题</div>
+        <div class="section-desc">连接失败、MCP Server 未加载等问题的排查方法</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 19 页：故障排除 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="故障排除">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">第七章</span>
+        <h1 class="page-title">常见问题排查</h1>
+        <p class="page-desc">遇到问题时按以下步骤检查</p>
+
+        <div class="content-area">
+          <div class="content-block">
+            <h3>连接失败</h3>
+            <div class="terminal">
+              <div class="terminal-body">
+<span class="t-comment"># 1. 确认 Tailscale 在线</span>
+<span class="t-cmd">tailscale status</span>
+
+<span class="t-comment"># 2. 测试 SSH 直连</span>
+<span class="t-cmd">ssh</span> <span class="t-flag">-i</span> ~/.ssh/id_ed25519 <span class="t-highlight">ubuntu@100.89.10.1</span>
+
+<span class="t-comment"># 3. 检查远程主机 SSH 服务</span>
+<span class="t-cmd">sudo systemctl status ssh</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-block">
+            <h3>MCP Server 未加载</h3>
+            <div class="terminal">
+              <div class="terminal-body">
+<span class="t-comment"># 检查配置文件路径是否正确</span>
+<span class="t-cmd">cat</span> ~/.claude/mcp.json
+
+<span class="t-comment"># 检查 TOML 文件语法</span>
+<span class="t-cmd">cat</span> ~/.ssh-manager/config.toml
+
+<span class="t-comment"># 重新启动 Claude Code</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-block">
+            <h3>服务器名含连字符报错</h3>
+            <div class="callout warn">
+              <div class="callout-title">⚠️ 命名规则</div>
+              <p>服务器名<strong>不支持连字符</strong>，需改为下划线：</p>
+              <p style="margin-top: 8px;"><code>❌ SSH_SERVER_WEB-SERVER_HOST</code></p>
+              <p><code>✅ SSH_SERVER_WEB_SERVER_HOST</code> → 对话时说"web server"或"web_server"</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 20 页：方案对比 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="方案对比">
+      <div class="slide-inner scrollable">
+        <span class="chapter-tag">补充内容</span>
+        <h1 class="page-title">与其他方案对比</h1>
+        <p class="page-desc">选择最适合你的远程开发方案</p>
+
+        <div class="content-area">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>方案</th>
+                <th>远程安装</th>
+                <th>多主机</th>
+                <th>跨网络</th>
+                <th>适用场景</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong style="color: var(--accent);">本方案（SSH MCP + Tailscale）</strong></td>
+                <td><span class="t-success">仅需 SSH 服务</span></td>
+                <td><span class="t-success">✅</span></td>
+                <td><span class="t-success">✅</span></td>
+                <td>本地开发，远程执行</td>
+              </tr>
+              <tr>
+                <td>Claude Code Desktop SSH 模式</td>
+                <td>自动安装 Claude Code</td>
+                <td>每次选择</td>
+                <td><span class="t-success">✅</span></td>
+                <td>有 GUI，单主机</td>
+              </tr>
+              <tr>
+                <td>SSH + tmux</td>
+                <td>需安装 Claude Code</td>
+                <td>手动切换</td>
+                <td><span class="t-success">✅</span></td>
+                <td>纯 CLI，单主机</td>
+              </tr>
+              <tr>
+                <td>SSHFS 挂载</td>
+                <td>仅需 SSH 服务</td>
+                <td>分别挂载</td>
+                <td><span class="t-success">✅</span></td>
+                <td>只需文件访问</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout tip">
+            <div class="callout-title">💡 选择建议</div>
+            <p>本方案最适合需要同时管理多台服务器、代码数据在远程、本地只做开发的场景</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- 第 21 页：结束页 -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="slide" data-title="结束">
+      <div class="slide-inner centered">
+        <div class="end-icon">🚀</div>
+        <div class="end-title">开始你的远程开发之旅</div>
+        <div class="end-desc">有问题欢迎查阅文档或寻求帮助</div>
+        <div class="link-group">
+          <a href="https://tailscale.com/kb" target="_blank" class="link-btn">Tailscale 文档</a>
+          <a href="https://github.com/bvisible/mcp-ssh-manager" target="_blank" class="link-btn">mcp-ssh-manager</a>
+          <a href="https://code.claude.com/docs/en/settings" target="_blank" class="link-btn">Claude Code MCP</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 目录侧边栏 -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+  <div id="sidebar">
+    <div class="sidebar-title">CONTENTS</div>
+    <div id="sidebar-menu"></div>
+  </div>
+
+  <!-- 跳转模态框 -->
+  <div id="goto-modal" class="modal-overlay" onclick="if(event.target===this)closeGotoModal()">
+    <div class="modal-content">
+      <div class="modal-title">跳转到页面</div>
+      <input type="number" id="goto-input" class="modal-input" min="1" placeholder="1"
+             onkeydown="if(event.key==='Enter')submitGoto();if(event.key==='Escape')closeGotoModal();">
+      <div class="modal-hint">共 <span id="goto-total"></span> 页，按 Enter 确认</div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- 底部导航栏 -->
+  <div id="nav-bar">
+    <button class="nav-btn" id="btn-first" onclick="goTo(0)">⏮</button>
+    <button class="nav-btn" id="btn-prev" onclick="prevSlide()">◀</button>
+    <span class="nav-page"><span id="current-page">1</span> / <span id="total-pages">1</span></span>
+    <button class="nav-btn" id="btn-next" onclick="nextSlide()">▶</button>
+    <button class="nav-btn" id="btn-last" onclick="goTo(total-1)">⏭</button>
+  </div>
+
+  <!-- 快捷键提示 -->
+  <div id="shortcuts-hint">
+    <span class="kbd">←</span> <span class="kbd">→</span> 翻页 &nbsp; <span class="kbd">T</span> 亮暗切换<br>
+    <span class="kbd">G</span> 跳转 &nbsp; <span class="kbd">M</span> 目录 &nbsp; <span class="kbd">F</span> 全屏
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════
+    // 状态管理
+    // ═══════════════════════════════════════════
+    let current = 0;
+    let total = 0;
+    let busy = false;
+    let theme = localStorage.getItem('slide-theme') || 'dark';
+    const slides = [];
+
+    // ═══════════════════════════════════════════
+    // 初始化
+    // ═══════════════════════════════════════════
+    function init() {
+      const slideElements = document.querySelectorAll('.slide');
+      slideElements.forEach((el, i) => {
+        slides.push(el);
+        el.style.zIndex = total - i;
+      });
+      total = slides.length;
+
+      buildSidebar();
+      updateNav();
+      applyTheme(theme, false);
+      goTo(0, false);
+    }
+
+    // ═══════════════════════════════════════════
+    // 主题切换
+    // ═══════════════════════════════════════════
+    function applyTheme(t, animate) {
+      if (!animate) document.documentElement.classList.add('no-transition');
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('theme-label').textContent = t === 'dark' ? 'DARK' : 'LIGHT';
+      localStorage.setItem('slide-theme', t);
+      if (!animate) {
+        document.documentElement.getBoundingClientRect();
+        document.documentElement.classList.remove('no-transition');
+      }
+    }
+
+    function toggleTheme() {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      applyTheme(theme, true);
+      showToast(theme === 'light' ? '☀️ 亮色模式' : '🌙 暗色模式');
+    }
+
+    // ═══════════════════════════════════════════
+    // 侧边栏
+    // ═══════════════════════════════════════════
+    function toggleSidebar(show) {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      if (show === undefined) show = !sidebar.classList.contains('open');
+      sidebar.classList.toggle('open', show);
+      overlay.classList.toggle('show', show);
+      updateSidebarActive();
+    }
+
+    function buildSidebar() {
+      const menu = document.getElementById('sidebar-menu');
+      slides.forEach((slide, i) => {
+        const title = slide.dataset.title || `第 ${i+1} 页`;
+        const item = document.createElement('div');
+        item.className = 'sidebar-item';
+        item.textContent = `${i+1}. ${title}`;
+        item.onclick = () => { goTo(i); toggleSidebar(false); };
+        menu.appendChild(item);
+      });
+    }
+
+    function updateSidebarActive() {
+      document.querySelectorAll('.sidebar-item').forEach((item, i) => {
+        item.classList.toggle('active', i === current);
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // 导航
+    // ═══════════════════════════════════════════
+    function goTo(index, animate = true) {
+      if (index < 0 || index >= total || (animate && busy)) return;
+
+      const old = current;
+      current = index;
+
+      if (animate) {
+        busy = true;
+
+        // 旧页退出
+        if (old !== index) {
+          slides[old].classList.remove('active');
+          slides[old].classList.add('exit-up');
+        }
+
+        // 新页进入准备
+        slides[current].classList.add('enter-from-below');
+        slides[current].classList.add('active');
+
+        // 强制 reflow
+        slides[current].getBoundingClientRect();
+        slides[current].classList.remove('enter-from-below');
+
+        setTimeout(() => {
+          slides[old]?.classList.remove('exit-up');
+          busy = false;
+        }, 420);
+      } else {
+        slides.forEach((s, i) => {
+          s.classList.remove('active', 'exit-up', 'enter-from-below');
+          if (i === index) s.classList.add('active');
+        });
+      }
+
+      // 重置滚动
+      const inner = slides[current].querySelector('.slide-inner');
+      if (inner && inner.classList.contains('scrollable')) {
+        inner.scrollTop = 0;
+      }
+
+      updateNav();
+      updateSidebarActive();
+    }
+
+    function nextSlide() { goTo(current + 1); }
+    function prevSlide() { goTo(current - 1); }
+
+    function updateNav() {
+      document.getElementById('current-page').textContent = current + 1;
+      document.getElementById('total-pages').textContent = total;
+      document.getElementById('btn-first').disabled = current === 0;
+      document.getElementById('btn-prev').disabled = current === 0;
+      document.getElementById('btn-next').disabled = current === total - 1;
+      document.getElementById('btn-last').disabled = current === total - 1;
+      document.getElementById('progress-bar').style.width = `${(current / (total - 1)) * 100}%`;
+    }
+
+    // ═══════════════════════════════════════════
+    // 跳转模态框
+    // ═══════════════════════════════════════════
+    function openGotoModal() {
+      const modal = document.getElementById('goto-modal');
+      document.getElementById('goto-total').textContent = total;
+      modal.classList.add('show');
+      const input = document.getElementById('goto-input');
+      input.value = '';
+      input.focus();
+    }
+
+    function closeGotoModal() {
+      document.getElementById('goto-input').blur();
+      document.getElementById('goto-modal').classList.remove('show');
+    }
+
+    function submitGoto() {
+      const input = document.getElementById('goto-input');
+      const p = parseInt(input.value, 10);
+      if (p >= 1 && p <= total) {
+        goTo(p - 1);
+        showToast(`跳转到第 ${p} 页`);
+      }
+      closeGotoModal();
+    }
+
+    // ═══════════════════════════════════════════
+    // Toast
+    // ═══════════════════════════════════════════
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    // ═══════════════════════════════════════════
+    // 键盘事件
+    // ═══════════════════════════════════════════
+    document.addEventListener('keydown', (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (document.getElementById('goto-modal').classList.contains('show')) {
+        if (e.key === 'Escape') closeGotoModal();
+        return;
+      }
+
+      switch(e.key) {
+        case 'ArrowRight':
+        case ' ':
+          e.preventDefault();
+          nextSlide();
+          break;
+        case 'ArrowLeft':
+          prevSlide();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          {
+            const inner = slides[current].querySelector('.slide-inner.scrollable');
+            if (inner && inner.scrollTop + inner.clientHeight < inner.scrollHeight - 10) {
+              inner.scrollTop += 80;
+            } else {
+              nextSlide();
+            }
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          {
+            const inner = slides[current].querySelector('.slide-inner.scrollable');
+            if (inner && inner.scrollTop > 10) {
+              inner.scrollTop -= 80;
+            } else {
+              prevSlide();
+            }
+          }
+          break;
+        case 'PageDown':
+          nextSlide();
+          break;
+        case 'PageUp':
+          prevSlide();
+          break;
+        case 'Home':
+          goTo(0);
+          showToast('跳转到第 1 页');
+          break;
+        case 'End':
+          goTo(total - 1);
+          showToast(`跳转到第 ${total} 页`);
+          break;
+        case 'g':
+        case 'G':
+          openGotoModal();
+          break;
+        case 'm':
+        case 'M':
+          toggleSidebar();
+          break;
+        case 't':
+        case 'T':
+          toggleTheme();
+          break;
+        case 'f':
+        case 'F':
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+          } else {
+            document.exitFullscreen();
+          }
+          break;
+        case 'Escape':
+          if (document.getElementById('sidebar').classList.contains('open')) {
+            toggleSidebar(false);
+          } else {
+            closeGotoModal();
+          }
+          break;
+      }
+    });
+
+    // ═══════════════════════════════════════════
+    // 触控支持
+    // ═══════════════════════════════════════════
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        if (dx < 0) nextSlide();
+        else prevSlide();
+      }
+    }, { passive: true });
+
+    // 启动
+    init();
+  </script>
+</body>
+</html>
