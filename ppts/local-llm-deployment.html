@@ -221,7 +221,7 @@ html, body {
 .slide-inner {
   width: 100%; height: 100%;
   padding: 64px 80px 120px;
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -1224,9 +1224,7 @@ html, body, .slide-inner, .slide {
           </div>
           <div class="term-body" style="font-size:12px">
 <span class="t-prompt">$ </span><span class="t-cmd">pip install mlx-lm</span>
-<span class="t-prompt">$ </span><span class="t-cmd">mlx_lm.generate</span> <span class="t-flag">\</span>
-    <span class="t-flag">--model</span> <span class="t-str">mlx-community/Qwen2.5-7B-Instruct-4bit</span> <span class="t-flag">\</span>
-    <span class="t-flag">--prompt</span> <span class="t-str">"你好"</span>
+<span style="opacity:0.5; padding-left:12px;">....</span>
 <span class="t-prompt">$ </span><span class="t-cmd">mlx_lm.server</span> <span class="t-flag">\</span>
     <span class="t-flag">--model</span> <span class="t-str">mlx-community/Qwen2.5-14B-Instruct-4bit</span> <span class="t-flag">\</span>
     <span class="t-flag">--port</span> <span class="t-str">8080</span>
@@ -1252,10 +1250,7 @@ html, body, .slide-inner, .slide {
           <div class="term-body" style="font-size:12px">
 <span class="t-comment"># 方式一：下载 DMG 安装包（推荐）</span>
 <span class="t-out">https://github.com/jundot/omlx/releases</span>
-
-<span class="t-comment"># 方式二：从源码安装</span>
-<span class="t-prompt">$ </span><span class="t-cmd">git clone https://github.com/jundot/omlx</span>
-<span class="t-prompt">$ </span><span class="t-cmd">cd omlx && pip install -e .</span>
+<span style="opacity:0.5; padding-left:12px;">....</span>
 <span class="t-prompt">$ </span><span class="t-cmd">omlx serve</span> <span class="t-flag">--model-dir</span> <span class="t-str">~/models</span>
 <span class="t-success">✔ http://localhost:8000  OpenAI + Anthropic 兼容</span></div>
         </div>
@@ -1333,8 +1328,7 @@ html, body, .slide-inner, .slide {
       </div>
       <div class="term-body">
 <span class="t-prompt">$ </span><span class="t-cmd">nvidia-smi</span>
-<span class="t-out">+-----------------------------------------------------------------------------+</span>
-<span class="t-out">| NVIDIA-SMI 535.104  Driver Version: 535.104  CUDA Version: 12.2             |</span>
+<span style="opacity:0.5; padding-left:12px;">....</span>
 <span class="t-out">| GPU 0: NVIDIA GeForce RTX 3090  24564MiB / 24576MiB                         |</span>
 <span class="t-out">+-----------------------------------------------------------------------------+</span></div></div>
   </div>
@@ -1372,12 +1366,8 @@ html, body, .slide-inner, .slide {
       <div class="term-body">
 <span class="t-comment"># 方法一：Ollama 直接拉取（最简单）</span>
 <span class="t-prompt">$ </span><span class="t-cmd">ollama pull qwen2.5:14b</span>
-<span class="t-comment"># 方法二：HuggingFace CLI（使用镜像加速）</span>
-<span class="t-prompt">$ </span><span class="t-kw">export</span> <span class="t-highlight">HF_ENDPOINT</span>=https://hf-mirror.com
-<span class="t-prompt">$ </span><span class="t-cmd">pip install huggingface_hub</span>
-<span class="t-prompt">$ </span><span class="t-cmd">huggingface-cli download</span> <span class="t-str">Qwen/Qwen2.5-7B-Instruct-GGUF</span> <span class="t-flag">--include</span> <span class="t-str">"*q4_k_m*"</span> <span class="t-flag">--local-dir</span> <span class="t-str">./models/</span>
+<span style="opacity:0.5; padding-left:12px;">....</span>
 <span class="t-comment"># 方法三：ModelScope（国内推荐）</span>
-<span class="t-prompt">$ </span><span class="t-cmd">pip install modelscope</span>
 <span class="t-prompt">$ </span><span class="t-cmd">modelscope download</span> <span class="t-flag">--model</span> <span class="t-str">qwen/Qwen2.5-7B-Instruct</span> <span class="t-flag">--local_dir</span> <span class="t-str">./models/qwen2.5-7b/</span></div></div>
 
     <div style="margin-top:16px;margin-bottom:8px;font-family:'SiteFontMono','Fira Code','LXGW WenKai',monospace;font-size:11px;color:var(--accent);letter-spacing:.12em">📊 GPU 实时监控 — nvtop</div>

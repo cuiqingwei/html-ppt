@@ -93,7 +93,7 @@
   .slide-inner {
     width: 100%; max-width: 960px;
     max-height: calc(100vh - 136px);
-    overflow-y: auto; overflow-x: hidden;
+    overflow-y: hidden; overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
@@ -573,23 +573,17 @@
   <div class="terminal">
     <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">~/.tmux.conf · Claude Code 优化版</span></div>
     <div class="terminal-body">
-<span class="comment"># 前缀键改为 Ctrl+a（更符合人体工学）</span><br>
+<span class="comment"># 前缀键改为 Ctrl+a</span><br>
 <span class="kw">set</span> <span class="flag">-g</span> prefix C-a&nbsp;&nbsp;<span class="kw">unbind</span> C-b&nbsp;&nbsp;<span class="kw">bind</span> C-a <span class="kw">send-prefix</span><br><br>
 <span class="comment"># 鼠标支持 + 256色真彩色</span><br>
 <span class="kw">set</span> <span class="flag">-g</span> mouse on<br>
 <span class="kw">set</span> <span class="flag">-g</span> default-terminal <span class="str">"tmux-256color"</span><br>
-<span class="kw">set</span> <span class="flag">-ag</span> terminal-overrides <span class="str">",xterm-256color:RGB"</span><br><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="comment"># 大历史缓冲区（Claude 输出很长！）</span><br>
-<span class="kw">set</span> <span class="flag">-g</span> history-limit 50000<br><br>
-<span class="comment"># 直觉化分割键</span><br>
-<span class="kw">bind</span> | <span class="kw">split-window</span> <span class="flag">-h</span> <span class="flag">-c</span> <span class="str">"#{pane_current_path}"</span><br>
-<span class="kw">bind</span> - <span class="kw">split-window</span> <span class="flag">-v</span> <span class="flag">-c</span> <span class="str">"#{pane_current_path}"</span><br><br>
-<span class="comment"># Vim 风格导航</span><br>
-<span class="kw">bind</span> h <span class="kw">select-pane</span> <span class="flag">-L</span>&nbsp;&nbsp;<span class="kw">bind</span> l <span class="kw">select-pane</span> <span class="flag">-R</span><br>
-<span class="kw">bind</span> j <span class="kw">select-pane</span> <span class="flag">-D</span>&nbsp;&nbsp;<span class="kw">bind</span> k <span class="kw">select-pane</span> <span class="flag">-U</span><br><br>
+<span class="kw">set</span> <span class="flag">-g</span> history-limit 50000<br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="comment"># 状态栏 + 重载</span><br>
 <span class="kw">set</span> <span class="flag">-g</span> status-style <span class="str">'bg=#1a1e28,fg=#8892a4'</span><br>
-<span class="kw">set</span> <span class="flag">-g</span> window-status-current-style <span class="str">'bg=#00d4aa,fg=#000,bold'</span><br>
 <span class="kw">bind</span> r <span class="kw">source-file</span> ~/.tmux.conf \; <span class="kw">display</span> <span class="str">"✓ 配置已重载"</span>
     </div>
   </div>
@@ -651,8 +645,7 @@
       <div class="pane active" style="grid-row:span 2;">
         <div class="pane-label al">PANE 0 · ACTIVE</div>
         <span style="color:var(--accent);">claude&gt;</span> <span style="color:#e2e8f4;">实现用户认证模块...</span><br>
-        <span style="color:#6b8096;">● 分析项目结构...</span><br>
-        <span style="color:#6b8096;">● 读取 models/user.py...</span><br>
+        <span style="opacity:0.5; padding-left:12px;">....</span><br>
         <span style="color:var(--green);">● 创建 auth/jwt.py ✓</span><br>
         <span style="color:var(--green);">● 创建 auth/middleware.py ✓</span><br>
         <span style="color:#f0c040;">● 更新 requirements.txt...</span>
@@ -697,11 +690,10 @@
       <table class="key-table">
         <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
         <tbody>
-          <tr><td><span class="kbd">Prefix + d</span></td><td class="desc">分离（后台保持运行）</td></tr>
-          <tr><td><span class="kbd">Prefix + s</span></td><td class="desc">列出所有会话并切换</td></tr>
-          <tr><td><span class="kbd">Prefix + $</span></td><td class="desc">重命名当前会话</td></tr>
-          <tr><td><span class="kbd">tmux ls</span></td><td class="desc">查看所有会话</td></tr>
-          <tr><td><span class="kbd">tmux attach -t 名</span></td><td class="desc">重新附加到会话</td></tr>
+          <tr><td><span class="kbd">Prefix + d</span></td><td class="desc">分离（后台运行）</td></tr>
+          <tr><td><span class="kbd">Prefix + s</span></td><td class="desc">切换会话</td></tr>
+          <tr><td><span style="opacity:0.5; padding-left:12px;">....</span></td><td></td></tr>
+          <tr><td><span class="kbd">tmux attach</span></td><td class="desc">重新附加</td></tr>
         </tbody>
       </table>
     </div>
@@ -711,10 +703,9 @@
         <thead><tr><th>快捷键</th><th>功能</th></tr></thead>
         <tbody>
           <tr><td><span class="kbd">Prefix + c</span></td><td class="desc">新建窗口</td></tr>
-          <tr><td><span class="kbd">Prefix + ,</span></td><td class="desc">重命名当前窗口</td></tr>
-          <tr><td><span class="kbd">Prefix + n / p</span></td><td class="desc">下 / 上一个窗口</td></tr>
-          <tr><td><span class="kbd">Prefix + 0-9</span></td><td class="desc">按编号跳转</td></tr>
-          <tr><td><span class="kbd">Prefix + w</span></td><td class="desc">窗口列表预览</td></tr>
+          <tr><td><span class="kbd">Prefix + ,</span></td><td class="desc">重命名窗口</td></tr>
+          <tr><td><span style="opacity:0.5; padding-left:12px;">....</span></td><td></td></tr>
+          <tr><td><span class="kbd">Prefix + w</span></td><td class="desc">列表预览</td></tr>
         </tbody>
       </table>
     </div>
@@ -785,12 +776,11 @@
     <div class="terminal-body">
 <span class="comment"># 创建会话并分割三窗格</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux new-session -d -s dev -n claude</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux split-window -h -t dev:claude</span>&nbsp;&nbsp;&nbsp;<span class="comment"># 右侧窗格</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux split-window -v -t dev:claude.1</span>&nbsp;<span class="comment"># 右下窗格</span><br><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="comment"># 各窗格启动对应进程</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.0 'claude' Enter</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.1 'npm test -- --watch' Enter</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux send-keys -t dev:claude.2 'git log --oneline -10' Enter</span><br><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="comment"># 附加并开始工作</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux attach-session -t dev</span>
     </div>
@@ -813,13 +803,11 @@
     <div class="terminal-body">
 <span class="comment"># 为每个功能分支创建独立 Claude 会话</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux new-session -d -s auth</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux send-keys -t auth 'git checkout feature/auth && claude' Enter</span><br><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux new-session -d -s api</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux send-keys -t api 'git checkout feature/api && claude' Enter</span><br><br>
-<span class="prompt">$</span> <span class="cmd">tmux new-session -d -s ui</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux send-keys -t ui 'git checkout feature/ui && claude' Enter</span><br><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
 <span class="comment"># 查看所有并行会话 · 快速切换</span><br>
-<span class="prompt">$</span> <span class="cmd">tmux ls</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="out">auth: 1w · api: 1w · ui: 1w</span><br>
+<span class="prompt">$</span> <span class="cmd">tmux ls</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="out">auth: 1w · api: 1w</span><br>
 <span class="prompt">$</span> <span class="cmd">tmux switch-client -t api</span>
     </div>
   </div>
@@ -840,16 +828,13 @@
     <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="terminal-label">auto-claude.sh</span></div>
     <div class="terminal-body">
 <span class="kw">#!/bin/bash</span><br>
-SESSION=<span class="str">"claude-auto"</span>&nbsp;&nbsp;TASK=<span class="str">"$1"</span><br><br>
-<span class="kw">if</span> ! tmux has-session <span class="flag">-t</span> $SESSION 2>/dev/null; <span class="kw">then</span><br>
-&nbsp;&nbsp;tmux new-session <span class="flag">-d</span> <span class="flag">-s</span> $SESSION<br>
-&nbsp;&nbsp;tmux send-keys <span class="flag">-t</span> $SESSION <span class="str">'claude'</span> Enter<br>
-&nbsp;&nbsp;sleep 3&nbsp;&nbsp;<span class="comment"># 等待 Claude 初始化</span><br>
-<span class="kw">fi</span><br><br>
-<span class="comment"># 发送任务并附加观察</span><br>
-tmux send-keys <span class="flag">-t</span> $SESSION <span class="str">"$TASK"</span> Enter<br>
-tmux attach <span class="flag">-t</span> $SESSION<br><br>
-<span class="comment"># 使用: ./auto-claude.sh "审查 src/ 目录的安全漏洞"</span>
+SESSION=<span class="str">"claude-auto"</span>&nbsp;&nbsp;TASK=<span class="str">"$1"</span><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
+<span class="kw">if</span> ! tmux has-session <span class="flag">-t</span> $SESSION; <span class="kw">then</span><br>
+&nbsp;&nbsp;tmux new-session <span class="flag">-d</span> <span class="flag">-s</span> $SESSION <span class="str">'claude'</span> Enter<br>
+<span class="kw">fi</span><br>
+<span style="opacity:0.5; padding-left:12px;">....</span><br>
+tmux send-keys <span class="flag">-t</span> $SESSION <span class="str">"$TASK"</span> Enter
     </div>
   </div>
 </div>
